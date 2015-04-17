@@ -1,0 +1,274 @@
+cpu 1
+include "shared.k.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org $00
+guard $90
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+include "z80.z.6502"
+
+.strptr skip 2
+.dumpptr skip 2
+.clrptr skip 2
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org $e00
+guard $8000
+
+.code_begin
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+include "z80.d.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+include "z80.c.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.clear
+{
+lda $f4:pha
+
+sei
+
+lda #4:jsr clear_rom
+lda #5:jsr clear_rom
+lda #6:jsr clear_rom
+lda #7:jsr clear_rom
+
+ldy #>code_end:ldx #$80->code_end:lda #$ff:jsr fill_pages
+
+cli
+
+pla:jsr set_rom
+
+ldx #0:.zclr:stz $0,X:inx:cpx #$90:bne zclr
+
+rts
+
+; A=rom number
+.set_rom
+{
+sei
+sta $fe30:sta $f4
+cli
+rts
+}
+
+; A=rom number
+.clear_rom
+{
+jsr set_rom:ldy #$80:ldx #$40:jmp fill_pages
+}
+
+; Y=base page X=page count A=value to fill
+.fill_pages
+{
+stz write+1:sty write+2:ldy #0
+.loop:
+.write:sta FIX_xxxx,Y
+iny:bne loop
+inc write+2:dex:bne loop
+rts
+}
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.check
+{
+
+.check_system
+{
+; NAUG p427 (pdf p217)
+lda #0:ldx #1:jsr osbyte
+cpx #3:beq good			; Master 128
+cpx #4:beq good			; Master ET
+cpx #5:beq good			; Master Compact
+brk:equb 255:equs "Master series required":brk
+.good
+}
+
+.check_tube
+{
+; NAUG p257 (pdf p132)
+lda #$82:jsr osbyte
+cpx #$ff:bne bad
+cpy #$ff:beq good
+.bad:brk:equb 255:equs "Must run in I/O processor":brk
+.good
+}
+
+.check_swram
+{
+; NAUG p160 (pdf p84)
+lda #$44:jsr osbyte
+txa:and #$0f:cmp #$0f:beq good
+brk:equb 255:equs "4 banks of sideways RAM required":brk
+.good
+}
+
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.incz16
+{
+inc $0,x:bne nc:inc $1,x:.nc
+rts
+}
+
+.addz16
+{
+clc
+adc $0,x:sta $0,x:bcc nc:inc $1,x:.nc
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.get_strptr
+{
+plx:ply				; grab return address
+
+clc
+pla:adc #1:sta strptr+0
+pla:adc #0:sta strptr+1
+
+phy:phx				; restore return address
+rts
+}
+
+.printstrnl
+jsr get_strptr
+jsr doprintstr
+jsr osnewl
+jmp (strptr)
+
+.printstr
+jsr get_strptr
+jsr doprintstr
+jmp (strptr)
+
+.doprintstr
+{
+.loop
+lda (strptr):ldx #strptr:jsr incz16
+cmp #255:beq done
+jsr oswrch:bra loop
+
+.done
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.printhex
+{
+pha
+pha:lsr a:lsr a:lsr a:lsr a:jsr hex2
+pla:and #$0f:jsr hex2
+pla
+rts
+
+.hex2:sed:clc:adc #$90:adc #$40:cld:jmp oswrch
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.printfstr
+{
+jsr get_strptr
+
+.loop
+lda (strptr):ldx #strptr:jsr incz16
+cmp #255:beq done
+cmp #8:bcs print
+.vals
+tay
+.vals_loop
+lda (strptr):ldx #strptr:jsr incz16
+tax:lda $0,x:jsr printhex
+dey:bne vals_loop:bra loop
+.print:jsr osasci:bra loop
+
+.done
+jmp (strptr)
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Entry: A=# lines, YX=address
+.dump
+{
+stx dumpptr+0:sty dumpptr+1:sta num_rows
+
+.loop
+
+; XXXX: 
+lda dumpptr+1:jsr printhex:lda dumpptr+0:jsr printhex:jsr printstr:equs ": ",255
+
+lda dumpptr+0:pha:lda dumpptr+1:pha
+
+lda #8:sta num_columns
+.hexloop:
+clc
+ldx dumpptr+0:ldy dumpptr+1:jsr zread:ldx #dumpptr:jsr incz16
+jsr printhex:lda #' ':jsr oswrch
+dec num_columns:bne hexloop
+
+pla:sta dumpptr+1:pla:sta dumpptr+0
+
+lda #8:sta num_columns
+.ascloop
+ldx dumpptr+0:ldy dumpptr+1:jsr zread:ldx #dumpptr:jsr incz16
+cmp #32:bcc nonprint:cmp #127:bcs print:.nonprint:lda #'.':.print
+jsr oswrch
+dec num_columns:bne ascloop
+
+jsr osnewl:dec num_rows:bne loop
+rts
+
+.num_rows:brk
+.num_columns:brk
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.start
+{
+jsr check
+jsr clear
+
+lda #0:clc:jsr zbad
+
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+align 256
+.code_end
+
+SAVE "ZX",code_begin,code_end,start

@@ -1,0 +1,74 @@
+cpu 1
+
+FIX16=$cccc
+
+oswrch=$ffee
+osnewl=$ffe7
+
+org $1100
+
+.code_begin
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.print_hex
+{
+pha
+pha:lsr a:lsr a:lsr a:lsr a:jsr p
+pla:and #$0f:jsr p
+pla:rts
+
+.p:sed:clc:adc #$90:adc #$40:cld:jmp oswrch
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.clear_memory
+{
+lda $f4:pha
+
+sei
+lda #4:jsr clear_rom
+lda #5:jsr clear_rom
+lda #6:jsr clear_rom
+lda #7:jsr clear_rom
+cli
+
+pla:jsr set_rom
+
+rts
+
+.set_rom:sei:sta $fe30:sta $f4:cli:rts
+
+.clear_rom
+sta $fe30;jsr set_rom
+clc:adc#48:sta $7c00
+lda #$80:ldx #$40:jmp clear_pages
+
+.clear_pages
+{
+stz write+1:sta write+2
+.loop:.write:stz FIX16:inc write+1:bne loop
+inc write+2:dex:bne loop
+rts
+}
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.start
+
+
+
+lda #22:jsr oswrch:lda #7:jsr oswrch:lda #32:jsr oswrch
+
+jsr clear_memory
+
+rts
+
+.code_end
+
+save "C.M128TS2",code_begin,code_end,start,code_begin
