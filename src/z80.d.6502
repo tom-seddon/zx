@@ -13,268 +13,71 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zop_nonprefix_table_b7reset
-equw zop00 ; 00 000 000
-equw zop01 ; 00 000 001
-equw zop02 ; 00 000 010
-equw zop03 ; 00 000 011
-equw zop04 ; 00 000 100
-equw zop05 ; 00 000 101
-equw zop06 ; 00 000 110
-equw zop07 ; 00 000 111
-equw zop08 ; 00 001 000
-equw zop09 ; 00 001 001
-equw zop0A ; 00 001 010
-equw zop0B ; 00 001 011
-equw zop0C ; 00 001 100
-equw zop0D ; 00 001 101
-equw zop0E ; 00 001 110
-equw zop0F ; 00 001 111
-equw zop10 ; 00 010 000
-equw zop11 ; 00 010 001
-equw zop12 ; 00 010 010
-equw zop13 ; 00 010 011
-equw zop14 ; 00 010 100
-equw zop15 ; 00 010 101
-equw zop16 ; 00 010 110
-equw zop17 ; 00 010 111
-equw zop18 ; 00 011 000
-equw zop19 ; 00 011 001
-equw zop1A ; 00 011 010
-equw zop1B ; 00 011 011
-equw zop1C ; 00 011 100
-equw zop1D ; 00 011 101
-equw zop1E ; 00 011 110
-equw zop1F ; 00 011 111
-equw zop20 ; 00 100 000
-equw zop21 ; 00 100 001
-equw zop22 ; 00 100 010
-equw zop23 ; 00 100 011
-equw zop24 ; 00 100 100
-equw zop25 ; 00 100 101
-equw zop26 ; 00 100 110
-equw zop27 ; 00 100 111
-equw zop28 ; 00 101 000
-equw zop29 ; 00 101 001
-equw zop2A ; 00 101 010
-equw zop2B ; 00 101 011
-equw zop2C ; 00 101 100
-equw zop2D ; 00 101 101
-equw zop2E ; 00 101 110
-equw zop2F ; 00 101 111
-equw zop30 ; 00 110 000
-equw zop31 ; 00 110 001
-equw zop32 ; 00 110 010
-equw zop33 ; 00 110 011
-equw zop34 ; 00 110 100
-equw zop35 ; 00 110 101
-equw zop36 ; 00 110 110
-equw zop37 ; 00 110 111
-equw zop38 ; 00 111 000
-equw zop39 ; 00 111 001
-equw zop3A ; 00 111 010
-equw zop3B ; 00 111 011
-equw zop3C ; 00 111 100
-equw zop3D ; 00 111 101
-equw zop3E ; 00 111 110
-equw zop3F ; 00 111 111
-equw zop40 ; 01 000 000
-equw zop41 ; 01 000 001
-equw zop42 ; 01 000 010
-equw zop43 ; 01 000 011
-equw zop44 ; 01 000 100
-equw zop45 ; 01 000 101
-equw zop46 ; 01 000 110
-equw zop47 ; 01 000 111
-equw zop48 ; 01 001 000
-equw zop49 ; 01 001 001
-equw zop4A ; 01 001 010
-equw zop4B ; 01 001 011
-equw zop4C ; 01 001 100
-equw zop4D ; 01 001 101
-equw zop4E ; 01 001 110
-equw zop4F ; 01 001 111
-equw zop50 ; 01 010 000
-equw zop51 ; 01 010 001
-equw zop52 ; 01 010 010
-equw zop53 ; 01 010 011
-equw zop54 ; 01 010 100
-equw zop55 ; 01 010 101
-equw zop56 ; 01 010 110
-equw zop57 ; 01 010 111
-equw zop58 ; 01 011 000
-equw zop59 ; 01 011 001
-equw zop5A ; 01 011 010
-equw zop5B ; 01 011 011
-equw zop5C ; 01 011 100
-equw zop5D ; 01 011 101
-equw zop5E ; 01 011 110
-equw zop5F ; 01 011 111
-equw zop60 ; 01 100 000
-equw zop61 ; 01 100 001
-equw zop62 ; 01 100 010
-equw zop63 ; 01 100 011
-equw zop64 ; 01 100 100
-equw zop65 ; 01 100 101
-equw zop66 ; 01 100 110
-equw zop67 ; 01 100 111
-equw zop68 ; 01 101 000
-equw zop69 ; 01 101 001
-equw zop6A ; 01 101 010
-equw zop6B ; 01 101 011
-equw zop6C ; 01 101 100
-equw zop6D ; 01 101 101
-equw zop6E ; 01 101 110
-equw zop6F ; 01 101 111
-equw zop70 ; 01 110 000
-equw zop71 ; 01 110 001
-equw zop72 ; 01 110 010
-equw zop73 ; 01 110 011
-equw zop74 ; 01 110 100
-equw zop75 ; 01 110 101
-equw zop76 ; 01 110 110
-equw zop77 ; 01 110 111
-equw zop78 ; 01 111 000
-equw zop79 ; 01 111 001
-equw zop7A ; 01 111 010
-equw zop7B ; 01 111 011
-equw zop7C ; 01 111 100
-equw zop7D ; 01 111 101
-equw zop7E ; 01 111 110
-equw zop7F ; 01 111 111
+; Maps value to S and Z flag settings.
+.sz_flag_values
+FOR i,0,255
+IF i==0:z=1:ELSE:z=0:ENDIF
+IF i AND $80:s=1:ELSE:s=0:ENDIF
+EQUB (s<<ZS_BIT) OR (z<<ZZ_BIT)
+NEXT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zop_nonprefix_table_b7set
-equw zop80 ; 10 000 000
-equw zop81 ; 10 000 001
-equw zop82 ; 10 000 010
-equw zop83 ; 10 000 011
-equw zop84 ; 10 000 100
-equw zop85 ; 10 000 101
-equw zop86 ; 10 000 110
-equw zop87 ; 10 000 111
-equw zop88 ; 10 001 000
-equw zop89 ; 10 001 001
-equw zop8A ; 10 001 010
-equw zop8B ; 10 001 011
-equw zop8C ; 10 001 100
-equw zop8D ; 10 001 101
-equw zop8E ; 10 001 110
-equw zop8F ; 10 001 111
-equw zop90 ; 10 010 000
-equw zop91 ; 10 010 001
-equw zop92 ; 10 010 010
-equw zop93 ; 10 010 011
-equw zop94 ; 10 010 100
-equw zop95 ; 10 010 101
-equw zop96 ; 10 010 110
-equw zop97 ; 10 010 111
-equw zop98 ; 10 011 000
-equw zop99 ; 10 011 001
-equw zop9A ; 10 011 010
-equw zop9B ; 10 011 011
-equw zop9C ; 10 011 100
-equw zop9D ; 10 011 101
-equw zop9E ; 10 011 110
-equw zop9F ; 10 011 111
-equw zopA0 ; 10 100 000
-equw zopA1 ; 10 100 001
-equw zopA2 ; 10 100 010
-equw zopA3 ; 10 100 011
-equw zopA4 ; 10 100 100
-equw zopA5 ; 10 100 101
-equw zopA6 ; 10 100 110
-equw zopA7 ; 10 100 111
-equw zopA8 ; 10 101 000
-equw zopA9 ; 10 101 001
-equw zopAA ; 10 101 010
-equw zopAB ; 10 101 011
-equw zopAC ; 10 101 100
-equw zopAD ; 10 101 101
-equw zopAE ; 10 101 110
-equw zopAF ; 10 101 111
-equw zopB0 ; 10 110 000
-equw zopB1 ; 10 110 001
-equw zopB2 ; 10 110 010
-equw zopB3 ; 10 110 011
-equw zopB4 ; 10 110 100
-equw zopB5 ; 10 110 101
-equw zopB6 ; 10 110 110
-equw zopB7 ; 10 110 111
-equw zopB8 ; 10 111 000
-equw zopB9 ; 10 111 001
-equw zopBA ; 10 111 010
-equw zopBB ; 10 111 011
-equw zopBC ; 10 111 100
-equw zopBD ; 10 111 101
-equw zopBE ; 10 111 110
-equw zopBF ; 10 111 111
-equw zopC0 ; 11 000 000
-equw zopC1 ; 11 000 001
-equw zopC2 ; 11 000 010
-equw zopC3 ; 11 000 011
-equw zopC4 ; 11 000 100
-equw zopC5 ; 11 000 101
-equw zopC6 ; 11 000 110
-equw zopC7 ; 11 000 111
-equw zopC8 ; 11 001 000
-equw zopC9 ; 11 001 001
-equw zopCA ; 11 001 010
-equw zopCB ; 11 001 011
-equw zopCC ; 11 001 100
-equw zopCD ; 11 001 101
-equw zopCE ; 11 001 110
-equw zopCF ; 11 001 111
-equw zopD0 ; 11 010 000
-equw zopD1 ; 11 010 001
-equw zopD2 ; 11 010 010
-equw zopD3 ; 11 010 011
-equw zopD4 ; 11 010 100
-equw zopD5 ; 11 010 101
-equw zopD6 ; 11 010 110
-equw zopD7 ; 11 010 111
-equw zopD8 ; 11 011 000
-equw zopD9 ; 11 011 001
-equw zopDA ; 11 011 010
-equw zopDB ; 11 011 011
-equw zopDC ; 11 011 100
-equw zopDD ; 11 011 101
-equw zopDE ; 11 011 110
-equw zopDF ; 11 011 111
-equw zopE0 ; 11 100 000
-equw zopE1 ; 11 100 001
-equw zopE2 ; 11 100 010
-equw zopE3 ; 11 100 011
-equw zopE4 ; 11 100 100
-equw zopE5 ; 11 100 101
-equw zopE6 ; 11 100 110
-equw zopE7 ; 11 100 111
-equw zopE8 ; 11 101 000
-equw zopE9 ; 11 101 001
-equw zopEA ; 11 101 010
-equw zopEB ; 11 101 011
-equw zopEC ; 11 101 100
-equw zopED ; 11 101 101
-equw zopEE ; 11 101 110
-equw zopEF ; 11 101 111
-equw zopF0 ; 11 110 000
-equw zopF1 ; 11 110 001
-equw zopF2 ; 11 110 010
-equw zopF3 ; 11 110 011
-equw zopF4 ; 11 110 100
-equw zopF5 ; 11 110 101
-equw zopF6 ; 11 110 110
-equw zopF7 ; 11 110 111
-equw zopF8 ; 11 111 000
-equw zopF9 ; 11 111 001
-equw zopFA ; 11 111 010
-equw zopFB ; 11 111 011
-equw zopFC ; 11 111 100
-equw zopFD ; 11 111 101
-equw zopFE ; 11 111 110
-equw zopFF ; 11 111 111
+; Maps value to P flag setting.
+.p_flag_values
+FOR i,0,255
+IF i AND (1<<0):b0=1:ELSE:b0=0:ENDIF
+IF i AND (1<<1):b1=1:ELSE:b1=0:ENDIF
+IF i AND (1<<2):b2=1:ELSE:b2=0:ENDIF
+IF i AND (1<<3):b3=1:ELSE:b3=0:ENDIF
+IF i AND (1<<4):b4=1:ELSE:b4=0:ENDIF
+IF i AND (1<<5):b5=1:ELSE:b5=0:ENDIF
+IF i AND (1<<6):b6=1:ELSE:b6=0:ENDIF
+IF i AND (1<<7):b7=1:ELSE:b7=0:ENDIF
+n=b0+b1+b2+b3+b4+b5+b6+b7
+IF n MOD 2==0:p=1:ELSE:p=0:ENDIF
+EQUB p<<ZP_BIT
+NEXT
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Maps F register value to an arbitrary value that would set the S and
+; Z flags the same way.
+;
+; (Of course, you can't actually set S and Z at the same time, so the
+; valuse for those entries are bogus...)
+.fszvals
+FOR f,0,255
+IF f AND ZZ_MASK:z=0:ELSE:z=1:ENDIF
+IF f AND ZN_MASK:s=0x80:ELSE:s=0:ENDIF
+EQUB z OR s
+NEXT
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.fpvals
+FOR i,0,255
+IF i AND ZP_MASK:EQUB ZP0_VALUE:ELSE:EQUB ZP1_VALUE:ENDIF
+NEXT
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.fcvals
+FOR i,0,255
+IF i and ZC_MASK:EQUB 128:ELSE:EQUB 0:ENDIF
+NEXT
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.fnvals
+FOR i,0,255
+IF i AND ZN_MASK:EQUB 128:ELSE:EQUB 0:ENDIF
+NEXT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

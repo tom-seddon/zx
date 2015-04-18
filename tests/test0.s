@@ -5,6 +5,9 @@ start:
 	exx
 	ld hl,$9abc
 	ld sp,$def0
+	ld a,$11
+	ld l,$f0
+	add a,l
 	nop
 	
 

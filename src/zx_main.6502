@@ -1,5 +1,7 @@
 cpu 1
+
 include "shared.k.6502"
+include "z80.k.6502"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -15,6 +17,8 @@ include "z80.z.6502"
 .strptr skip 2
 .dumpptr skip 2
 .clrptr skip 2
+
+.zp_end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -323,7 +327,7 @@ prog_load=0
 .loadprog
 {
 lda #<prog_load:sta loadl+1:lda #>prog_load:sta loadh+1
-lda #<prog_begin:sta read+1:lda #>prog_end:sta read+2
+lda #<prog_begin:sta read+1:lda #>prog_begin:sta read+2
 
 .loop
 .read:lda FIX_xxxx:
@@ -341,8 +345,16 @@ rts
 align 256
 .code_end
 
+space_used=code_end-code_begin
 space_left=$8000-code_end
 
-PRINT "Space left:",space_left,~space_left
+zp_used=zp_end
+zp_left=$90-zp_used
+
+PRINT "ZP Used: ",zp_used,~zp_used
+PRINT "ZP Left: ",zp_left,~zp_left
+
+PRINT "Mem Used: ",space_used,~space_used
+PRINT "Mem Left:",space_left,~space_left
 
 SAVE "ZX",code_begin,code_end,start

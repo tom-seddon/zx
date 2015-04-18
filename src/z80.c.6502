@@ -17,7 +17,7 @@ rts
 ; Exit: A - byte read, NZ set accordingly, X/Y preserved
 
 MACRO LOAD_XY
-lda romsel_table,Y:sta romsel
+lda romsel_table,Y:sta romsel;:sta $f4
 lda msb_table,Y:sta read+2
 .read:lda FIX_xx00,X
 ENDMACRO
@@ -36,7 +36,7 @@ ENDMACRO
 ; Exit: X changed, A/Y preserved
 MACRO STORE_XY
 stx write+1
-ldx romsel_table,Y:stx romsel
+ldx romsel_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .write:sta FIX_xxxx
 ENDMACRO
@@ -45,7 +45,7 @@ ENDMACRO
 ; zp:STORE_XY:LDX zp.
 MACRO STORE_XY_KEEPX
 stx loadx+1
-ldx romsel_table,Y:stx romsel
+ldx romsel_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .loadx:ldx #FIX_xx:.write:sta FIX_xx00,X
 ENDMACRO
@@ -145,6 +145,35 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Packs the zfXXX values into the F register.
+.zpack_flags
+{
+lda zf53val:and #%00101000
+ldx zfhval:beq nh:ora #ZH_MASK:.nh
+bit zfcval:bpl noc:ora #ZC_MASK:.noc
+bit zfnval:bpl non:ora #ZN_MASK:.non
+ldx zfszval:ora sz_flag_values,X
+ldx zfpval:ora p_flag_values,X
+sta zrf
+rts
+}
+
+; Unpacks the F register into the zfXXX values.
+.zunpack_flags
+{
+ldx zrf
+lda fszvals,X:sta zfszval
+lda fpvals,X:sta zfpval
+lda fcvals,X:sta zfcval
+lda fnvals,X:sta zfnval
+stx zfhval
+stx zf53val
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 MACRO ZBAD
 jmp zbad
 ENDMACRO
@@ -152,6 +181,130 @@ ENDMACRO
 MACRO ZNEXT cycles
 jmp znext
 ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_ZADD
+sta zop__tmp			    ; zop__tmp=operand B
+lda zra:tax:adc zop__tmp:sta zra    ; zra=result
+sta zfszval			    ; Set/reset S+Z
+sta zf53val			    ; Set/reset 5+3
+ror zfcval			    ; Set/reset C
+txa:eor zop__tmp:eor zra:sta zfhval ; Set/reset H
+stz zfnval			    ; Reset N
+ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
+ENDMACRO
+
+.zadc
+{
+asl zfcval
+DO_ZADD
+ZNEXT 0
+}
+
+.zadd
+{
+clc
+DO_ZADD
+ZNEXT 0
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_ZSUB_OR_CP is_sub
+lda zra:tax:sbc zop__tmp
+IF is_sub:sta zra:ENDIF
+sta zfszval			; Set/reset S+Z
+
+ ; CP sets bits 5+3 from the operand.
+IF is_sub:sta zf53val:ELSE:ldy zop__tmp:sty zf53val:ENDIF
+
+eor #$80:ror a					    ; Set/reset C
+txa:eor zop__tmp:eor zra:sta zfhval		    ; Set/reset H
+lda #128:sta zfnval				    ; Set N
+ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
+ENDMACRO
+
+.zsub
+{
+sec
+sta zop__tmp			    ; zsub__tmp=operand B
+DO_ZSUB_OR_CP 1
+ZNEXT 0
+}
+
+.zsbc
+{
+sta zop__tmp
+lda zfcval:eor #$80:asl a
+DO_ZSUB_OR_CP 1
+ZNEXT 0
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zcp
+{
+sec
+sta zop__tmp
+DO_ZSUB_OR_CP 0
+ZNEXT 0
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zand
+{
+; SZ5H3PNC
+; SZ513P00
+and zra:sta zra
+sta zf53val			; Set bits 5+3
+sta zfszval			; Set/reset S+Z
+sta zfpval			; Set/reset P
+lda #128:sta zfhval		; Set H
+stz zfnval			; Reset N
+stz zfhval			; Reset H
+stz zfcval			; Reset C
+ZNEXT 0
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; SZ5H3PNC
+; SZ503P00
+.zor
+{
+ora zra:sta zra
+sta zf53val			; Set bits 5+3
+sta zfszval			; Set/reset S+Z
+sta zfpval			; Set/reset P
+stz zfhval			; Reset H
+stz zfnval			; Reset N
+stz zfhval			; Reset H
+stz zfcval			; Reset C
+ZNEXT 0
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zxor
+{
+eor zra:sta zra
+sta zf53val			; Set bits 5+3
+sta zfszval			; Set/reset S+Z
+sta zfpval			; Set/reset P
+stz zfhval			; Reset H
+stz zfnval			; Reset N
+stz zfhval			; Reset H
+stz zfcval			; Reset C
+ZNEXT 0
+}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -165,14 +318,14 @@ include "../build/z80ops.generated.6502"
 {
 cli
 ror a:sta zbad__opcode
+jsr zpack_flags
 
 jsr printstr:equs 22,128,255
 
 jsr printfstr
 equb "Invalid opcode: ",1,zbad__opcode,13
-equb "AF =",2,zra,zrf," BC =",2,zrb,zrc," DE =",2,zrd,zre," HL =",2,zrh,zrl,13
-equb "AF'=",2,zra2,zrf2," BC'=",2,zrb2,zrc2," DE'=",2,zrd2,zre2," HL'=",2,zrh2,zrl2,13
-equb "IX=",2,zrixh,zrixl," IY=",2,zriyh,zriyl," PC=",2,zrpch,zrpcl," SP=",2,zrsph,zrspl," IR=",2,zri,zrr,13
+equb "AF =",2,zra,zrf," BC =",2,zrb,zrc," DE =",2,zrd,zre," HL =",2,zrh,zrl,"  IX=",2,zrixh,zrixl,"  PC=",2,zrpch,zrpcl,"  I=",1,zri,13
+equb "AF'=",2,zra2,zrf2," BC'=",2,zrb2,zrc2," DE'=",2,zrd2,zre2," HL'=",2,zrh2,zrl2,"  IY=",2,zriyh,zriyl,"  SP=",2,zrsph,zrspl,"  R=",1,zrr,13
 equb 255
 
 jsr printstrnl:equs "PC:",255:ldx zrpcl:ldy zrpch:lda #3:jsr dumpregion
@@ -211,7 +364,7 @@ inc zrr
 asl a:tax
 
 bcs set
-.reset:jmp (zop_nonprefix_table_b7reset,X)
-.set:jmp (zop_nonprefix_table_b7set,X)
+.reset:jmp (zop_table_0xxxxxxx,X)
+.set:jmp (zop_table_1xxxxxxx,X)
 }
 }

@@ -39,11 +39,19 @@
 ; 8th bit of R.
 .zr8 skip 1
 
-; Last result - used to set S and Z flags.
-.zvalue skip 1
+; Last results - used to set flags.
+.zfszval skip 1			; result that should drive S and Z
+.zfpval skip 1			; result that should drive P/V (always
+				; treated as parity - must store
+				; appropriate values to set or reset
+				; V)
+.zfcval skip 1			; Z80 carry comes from bit 7
+.zfnval skip 1			; Z80 N flag comes from bit 7
+.zfhval skip 1			; Z80 H flag comes from bit 4
+.zf53val skip 1			; Values for bits 5+3
 
 ; LSB of word fetched by zfetch2.
-.zfetch2_lsb
+.zfetch2_lsb skip 1
 
 .zread__ptr skip 2
 
@@ -53,3 +61,5 @@
 ; 1 temporary value for use by the current op routine.
 .zop__tmp skip 1
 
+; Temporary value for SUB.
+.zsub__tmp skip 1
