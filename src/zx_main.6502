@@ -278,13 +278,34 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+.save_swram
+{
+sta fname
+lda #'4':jsr save
+lda #'5':jsr save
+lda #'6':jsr save
+lda #'7':jsr save
+rts
+
+.save
+sta fname+1:sta slot
+ldx #<cmd:ldy #>cmd:jmp oscli
+
+.cmd:equs "SRSAVE :6.X.":.fname:equs "X4 8000+4000 ":.slot:equs "4",13
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 .start
 {
 jsr check
 jsr clear
+;lda #'A':jsr save_swram
 jsr loadprog
-
+;lda #'B':jsr save_swram
 jsr zrun
+;lda #'C':jsr save_swram
 
 ldx #<basic:ldy #>basic:jmp oscli
 
