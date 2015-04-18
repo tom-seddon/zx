@@ -42,7 +42,14 @@
 ; Last result - used to set S and Z flags.
 .zvalue skip 1
 
+; LSB of word fetched by zfetch2.
+.zfetch2_lsb
+
 .zread__ptr skip 2
 
 ; The opcode that caused the emulator to barf.
 .zbad__opcode skip 1
+
+; 1 temporary value for use by the current op routine.
+.zop__tmp skip 1
+
