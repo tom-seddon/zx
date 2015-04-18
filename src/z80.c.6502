@@ -2146,7 +2146,7 @@ ZBAD
 {
 ror a:sta zbad__opcode
 
-jsr printstr:equs 22,135,255
+jsr printstr:equs 22,128,255
 
 jsr printfstr
 equb "Invalid opcode: ",1,zbad__opcode,13
@@ -2160,16 +2160,17 @@ jsr printstrnl:equs "Stack:",255:ldx zrspl:ldy zrsph:lda #3:jsr dumpregion
 jsr printstrnl:equs "BC:",255:ldx zrc:ldy zrb:lda #2:jsr dumpregion
 jsr printstrnl:equs "DE:",255:ldx zre:ldy zrd:lda #2:jsr dumpregion
 jsr printstrnl:equs "HL:",255:ldx zrl:ldy zrh:lda #2:jsr dumpregion
+jsr printstrnl:equs "6502 zero page:",255:ldx #0:ldy #0:lda #3:jsr dump6502
 
 ldx #<basic:ldy #>basic:jmp oscli
 
 .dumpregion
 pha
 sec
-txa:sbc #1:and #%11111000:tax
+txa:sbc #1:and #(255<<dump_width_log2) AND 255:tax
 tya:sbc #0:tay
 pla
-jmp dump
+jmp dumpz80
 
 .basic:equs "BASIC",13
 }

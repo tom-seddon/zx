@@ -217,8 +217,23 @@ jmp (strptr)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+dump_width_log2=4
+
 ; Entry: A=# lines, YX=address
-.dump
+.dump6502
+{
+pha:lda #<read6502:sta dumpread+1:lda #>read6502:sta dumpread+2:pla
+jmp dumpmem
+}
+
+; Entry: A=# lines, YX=address
+.dumpz80
+{
+pha:lda #<zread:sta dumpread+1:lda #>zread:sta dumpread+2:pla
+jmp dumpmem
+}
+
+.dumpmem
 {
 stx dumpptr+0:sty dumpptr+1:sta num_rows
 
@@ -229,18 +244,18 @@ lda dumpptr+1:jsr printhex:lda dumpptr+0:jsr printhex:jsr printstr:equs ": ",255
 
 lda dumpptr+0:pha:lda dumpptr+1:pha
 
-lda #8:sta num_columns
+lda #1<<dump_width_log2:sta num_columns
 .hexloop:
 clc
-ldx dumpptr+0:ldy dumpptr+1:jsr zread:ldx #dumpptr:jsr incz16
+ldx dumpptr+0:ldy dumpptr+1:jsr dumpread:ldx #dumpptr:jsr incz16
 jsr printhex:lda #' ':jsr oswrch
 dec num_columns:bne hexloop
 
 pla:sta dumpptr+1:pla:sta dumpptr+0
 
-lda #8:sta num_columns
+lda #1<<dump_width_log2:sta num_columns
 .ascloop
-ldx dumpptr+0:ldy dumpptr+1:jsr zread:ldx #dumpptr:jsr incz16
+ldx dumpptr+0:ldy dumpptr+1:jsr dumpread:ldx #dumpptr:jsr incz16
 cmp #32:bcc nonprint:cmp #127:bcs print:.nonprint:lda #'.':.print
 jsr oswrch
 dec num_columns:bne ascloop
@@ -250,6 +265,15 @@ rts
 
 .num_rows:brk
 .num_columns:brk
+}
+
+.dumpread:jmp FIX_xxxx
+
+.read6502
+{
+stx read+1:sty read+2
+.read:lda FIX_xxxx
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -270,5 +294,9 @@ rts
 
 align 256
 .code_end
+
+space_left=$8000-code_end
+
+PRINT "Space left:",space_left,~space_left
 
 SAVE "ZX",code_begin,code_end,start
