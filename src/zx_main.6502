@@ -285,6 +285,7 @@ jsr check
 jsr clear
 
 lda #0:clc:jsr zbad
+jmp znext
 
 rts
 }
