@@ -16,21 +16,34 @@ rts
 ; Entry: X (LSB), Y (MSB) - address
 ; Exit: A - byte read, NZ set accordingly, X/Y preserved
 
-MACRO FETCH_XY
+MACRO LOAD_XY
 lda romsel_table,Y:sta romsel
 lda msb_table,Y:sta read+2
 .read:lda FIX_xx00,X
 ENDMACRO
 
-; As FETCH_XY, but increments the address afterwards.
-MACRO FETCH_XY_POSTINC
-FETCH_XY
+; As LOAD_XY, but increments the address afterwards.
+MACRO LOAD_XY_POSTINC
+LOAD_XY
 inx:bne nc:iny:.nc
 ENDMACRO
 
-MACRO FETCH_XY_PREDEC
+MACRO LOAD_XY_PREDEC
 dex:cpx #$ff:bne nb:dey:.nb
-FETCH_XY
+LOAD_XY
+ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Entry: X (LSB), Y (MSB) - address; A - value to write
+;
+; Exit: X changed, A/Y preserved
+MACRO STORE_XY
+stx write+1
+ldx romsel_table,Y:stx romsel
+ldx msb_table,Y:stx write+2
+.write:sta FIX_xxxx
 ENDMACRO
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -39,7 +52,15 @@ ENDMACRO
 .zread
 {
 sei
-FETCH_XY
+LOAD_XY
+cli
+rts
+}
+
+.zwrite
+{
+sei
+STORE_XY
 cli
 rts
 }
@@ -64,7 +85,7 @@ rts
 
 ldx zrpcl:ldy zrpch
 
-FETCH_XY_POSTINC
+LOAD_XY_POSTINC
 
 stx zrpcl:sty zrpch
 
@@ -2144,6 +2165,7 @@ ZBAD
 
 .zbad
 {
+cli
 ror a:sta zbad__opcode
 
 jsr printstr:equs 22,128,255
@@ -2162,7 +2184,7 @@ jsr printstrnl:equs "DE:",255:ldx zre:ldy zrd:lda #2:jsr dumpregion
 jsr printstrnl:equs "HL:",255:ldx zrl:ldy zrh:lda #2:jsr dumpregion
 jsr printstrnl:equs "6502 zero page:",255:ldx #0:ldy #0:lda #3:jsr dump6502
 
-ldx #<basic:ldy #>basic:jmp oscli
+rts
 
 .dumpregion
 pha
@@ -2172,8 +2194,11 @@ tya:sbc #0:tay
 pla
 jmp dumpz80
 
-.basic:equs "BASIC",13
 }
+
+.zrun
+; Stop any funny business with ROMSEL.
+sei
 
 .znext
 {

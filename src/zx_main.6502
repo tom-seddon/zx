@@ -246,7 +246,6 @@ lda dumpptr+0:pha:lda dumpptr+1:pha
 
 lda #1<<dump_width_log2:sta num_columns
 .hexloop:
-clc
 ldx dumpptr+0:ldy dumpptr+1:jsr dumpread:ldx #dumpptr:jsr incz16
 jsr printhex:lda #' ':jsr oswrch
 dec num_columns:bne hexloop
@@ -256,7 +255,7 @@ pla:sta dumpptr+1:pla:sta dumpptr+0
 lda #1<<dump_width_log2:sta num_columns
 .ascloop
 ldx dumpptr+0:ldy dumpptr+1:jsr dumpread:ldx #dumpptr:jsr incz16
-cmp #32:bcc nonprint:cmp #127:bcs print:.nonprint:lda #'.':.print
+cmp #32:bcc nonprint:cmp #127:bcc print:.nonprint:lda #'.':.print
 jsr oswrch
 dec num_columns:bne ascloop
 
@@ -283,10 +282,35 @@ rts
 {
 jsr check
 jsr clear
+jsr loadprog
 
-lda #0:clc:jsr zbad
-jmp znext
+jsr zrun
 
+ldx #<basic:ldy #>basic:jmp oscli
+
+.basic:equs "BASIC",13
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.prog_begin
+incbin "../build/test0.dat"
+.prog_end
+prog_load=0
+
+.loadprog
+{
+lda #<prog_load:sta loadl+1:lda #>prog_load:sta loadh+1
+lda #<prog_begin:sta read+1:lda #>prog_end:sta read+2
+
+.loop
+.read:lda FIX_xxxx:
+.loadl:ldx #FIX_xx:.loadh:ldy #FIX_xx:jsr zwrite
+{inc read+1:beq nc:inc read+2:.nc}
+{inc loadl+1:beq nc:inc loadh+1:.nc}
+lda read+1:cmp #<prog_end:bne loop
+lda read+2:cmp #>prog_end:bne loop
 rts
 }
 
