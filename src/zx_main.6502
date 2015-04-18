@@ -307,8 +307,8 @@ lda #<prog_begin:sta read+1:lda #>prog_end:sta read+2
 .loop
 .read:lda FIX_xxxx:
 .loadl:ldx #FIX_xx:.loadh:ldy #FIX_xx:jsr zwrite
-{inc read+1:beq nc:inc read+2:.nc}
-{inc loadl+1:beq nc:inc loadh+1:.nc}
+{inc read+1:bne nc:inc read+2:.nc}
+{inc loadl+1:bne nc:inc loadh+1:.nc}
 lda read+1:cmp #<prog_end:bne loop
 lda read+2:cmp #>prog_end:bne loop
 rts
