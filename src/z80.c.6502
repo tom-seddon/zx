@@ -25,11 +25,11 @@ ENDMACRO
 ; As FETCH_XY, but increments the address afterwards.
 MACRO FETCH_XY_POSTINC
 FETCH_XY
-inx:beq nc:iny:.nc
+inx:bne nc:iny:.nc
 ENDMACRO
 
 MACRO FETCH_XY_PREDEC
-dex:cpx #$ff:bne nc:dey:.nc
+dex:cpx #$ff:bne nb:dey:.nb
 FETCH_XY
 ENDMACRO
 
