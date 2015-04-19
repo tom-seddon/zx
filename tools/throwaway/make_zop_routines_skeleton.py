@@ -262,20 +262,33 @@ def exx():
 
 def alu_imm(mnem):
     return Instr("%s a,n"%mnem,
-                 ["jsr zfetch:jmp z%s"%mnem],
+                 ["jsr zfetch:jmp zop_%s"%mnem],
                  [4])
 
 def alu_r8(mnem,r):
     if r is None: return None
     return Instr("%s a,%s"%(mnem,r),
-                 ["lda zr%s:jmp z%s"%(r,mnem)],
+                 ["lda zr%s:jmp zop_%s"%(r,mnem)],
                  [4])
 
 def alu_ind(mnem,r):
     if r is None: return None
     return Instr("%s a,(%s)"%(mnem,r.indfull),
-                 x_read_ind(r,["jmp z%s"%mnem]),
+                 x_read_ind(r,["jmp zop_%s"%mnem]),
                  [4,3])
+
+
+def rot_r8(mnem,r):
+    if r is None: return None
+    return Instr("%s %s"%(mnem,r),
+                 ["lda zr%s:jsr zdo_%s:sta zr%s"%(r,mnem,r)],
+                 [4,4])
+
+def rot_ind8(mnem,ir):
+    if ir is None: return None
+    return Instr("%s (%s)"%(mnem,ir.indfull),
+                 x_rmw_ind(ir,["jsr zdo_%s"%mnem]),
+                 [4,4,4,3])
 
 def inc_r8(r):
     if r is None: return None
@@ -386,7 +399,8 @@ def call():
                   "lda zfetch2_lsb:sta zrpcl",
                   "lda zop__tmp:sta zrpch"],
                  [4,3,4,3,3])
-                  
+
+
 
 # def family(prefix,opcode,d1_val,mnem):
 #     d0=(opcode>>6)&3
@@ -483,30 +497,18 @@ def get_unprefixed_opcodes(prefix):
                 instr=ld_r8_imm(regs_8bit[prefix][by])
             elif bz==7:
                 if by==0: instr=Instr("rlca",
-                                      ["lda zra:cmp #$80:rol a:sta zra",
-                                       "ror zfcval",
-                                       "stz zfhval",
-                                       "stz zfnval"],
+                                      ["lda zra:jsr zdo_rlc:sta zra"],
                                       [4])
                 elif by==1: instr=Instr("rrca",
-                                        ["lda zra:lsr a:lda zra:ror a:sta zra",
-                                         "ror zfcval",
-                                         "stz zfhval",
-                                         "stz zfnval"],
+                                        ["lda zra:jsr zdo_rrc:sta zra"],
                                         [4])
                 elif by==2: instr=Instr("rla",
-                                        ["asl zfcval:rol zra",
-                                         "ror zfcval",
-                                         "stz zfhval",
-                                         "stz zfnval"],
+                                        ["lda zra:jsr zdo_rl:sta zra"],
                                         [4])
                 elif by==3: instr=Instr("rra",
-                                        ["asl zfcval:ror zra",
-                                         "ror zfcval",
-                                         "stz zfhval",
-                                         "stz zfnval",],
+                                        ["lda zra:jsr zdo_rr:sta zra"],
                                         [4])
-                elif by==4: instr=ManualInstr("zdaa","daa")
+                elif by==4: instr=ManualInstr("zop_daa","daa")
                 elif by==5: instr=Instr("cpl",
                                         ["lda zra:eor #$ff:sta zra",
                                          "lda #1:sta zfhval",
@@ -551,8 +553,8 @@ def get_unprefixed_opcodes(prefix):
                 elif by==1: pass    # CB
                 elif by==4: instr=ex_sp(regs_16bit[prefix][2])
                 elif by==5: instr=ex_de_hl()
-                elif by==6: instr=ManualInstr("zdi","di")
-                elif by==7: instr=ManualInstr("zei","ei")
+                elif by==6: instr=ManualInstr("zop_di","di")
+                elif by==7: instr=ManualInstr("zop_ei","ei")
             elif bz==4:
                 instr=callcc(by)
             elif bz==5:
@@ -565,13 +567,43 @@ def get_unprefixed_opcodes(prefix):
             elif bz==6:
                 instr=alu_imm(alu_mnemonics[by])
             elif bz==7:
-                instr=ManualInstr("zrst","rst %02Xh"%(by*8))
+                instr=ManualInstr("zop_rst","rst %02Xh"%(by*8))
             pass
 
         if instr is not None: instrs[opcode]=instr
 
     return instrs
-        
+
+##########################################################################
+##########################################################################
+
+rot_mnemonics=["rlc","rrc","rl","rr","sla","sra","sll","srl"]
+
+
+def get_cb_opcodes(prefix):
+    instrs=[]
+
+    instrs=256*[None]
+
+    for bx,by,bz in itertools.product(range(4),range(8),range(8)):
+        instr=None
+        opcode=(bx<<6)|(by<<3)|(bz<<0)
+
+        if bx==0:
+            mnem=rot_mnemonics[by]
+            if bz==6: instr=rot_ind8(mnem,regs_16bit[prefix][2])
+            else: instr=rot_r8(mnem,regs_8bit[prefix][bz])
+        elif bx==1:
+            pass
+        elif bx==2:
+            pass
+        elif bx==3:
+            pass
+
+        instrs[opcode]=instr
+
+    return instrs
+
 ##########################################################################
 ##########################################################################
 
@@ -579,7 +611,9 @@ instrs_un=get_unprefixed_opcodes(None)
 instrs_dd=get_unprefixed_opcodes(0xdd)
 instrs_fd=get_unprefixed_opcodes(0xfd)
 
-# instrs_cb=get_cb_opcodes(None)
+instrs_cb=get_cb_opcodes(None)
+instrs_ddcb=get_cb_opcodes(0xdd)
+instrs_fdcb=get_cb_opcodes(0xfd)
 
 opcode_by_dis={}
 for i,x in enumerate(instrs_un):
@@ -673,11 +707,12 @@ def generate_routines(instrs,fallback_instrs,prefix):
 generate_routines(instrs_un,None,None)
 generate_routines(instrs_dd,instrs_un,0xdd)
 generate_routines(instrs_fd,instrs_un,0xfd)
+generate_routines(instrs_cb,None,0xcb)
+generate_routines(instrs_ddcb,None,0xddcb)
+generate_routines(instrs_fdcb,None,0xfdcb)
     
 ##########################################################################
 ##########################################################################
-
-# rot_mnemonics=["rlc","rrc","rl","rr","sla","sra","sll","srl"]
 
 # cb_instrs=[]
 # for bx,by,bz in itertools.product(range(4),range(8),range(8)):

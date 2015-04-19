@@ -240,14 +240,14 @@ stz zfnval			    ; Reset N
 ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
 ENDMACRO
 
-.zadc
+.zop_adc
 {
 asl zfcval
 DO_ZADD
 ZNEXT 0
 }
 
-.zadd
+.zop_add
 {
 clc
 DO_ZADD
@@ -296,7 +296,7 @@ lda #128:sta zfnval				    ; Set N
 ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
 ENDMACRO
 
-.zsub
+.zop_sub
 {
 sec
 sta zop__tmp			    ; zsub__tmp=operand B
@@ -304,7 +304,7 @@ DO_ZSUB_OR_CP 1
 ZNEXT 0
 }
 
-.zsbc
+.zop_sbc
 {
 sta zop__tmp
 lda zfcval:eor #$80:asl a
@@ -315,7 +315,7 @@ ZNEXT 0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zcp
+.zop_cp
 {
 sec
 sta zop__tmp
@@ -326,7 +326,7 @@ ZNEXT 0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zand
+.zop_and
 {
 ; SZ5H3PNC
 ; SZ513P00
@@ -346,7 +346,7 @@ ZNEXT 0
 
 ; SZ5H3PNC
 ; SZ503P00
-.zor
+.zop_or
 {
 ora zra:sta zra
 sta zf53val			; Set bits 5+3
@@ -362,7 +362,7 @@ ZNEXT 0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zxor
+.zop_xor
 {
 eor zra:sta zra
 sta zf53val			; Set bits 5+3
@@ -378,7 +378,128 @@ ZNEXT 0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zdaa
+; The shifts/rotates operate on 6502 accumulator, preserving X and Y.
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_rlc
+{
+cmp #$80:rol a
+ror zfcval			; C set from old bit 7
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_rrc
+{
+sta zop__tmp:lsr a:lda zop__tmp:ror a
+ror zfcval			; C set from old bit 0
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_rl
+{
+asl zfcval:rol a
+ror zfcval			; C set from old bit 7
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_rr
+{
+asl zfcval:ror a
+ror zfcval			; C set from old bit 0
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_sla
+{
+asl a
+ror zfcval			; C set from old bit 7
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_sra
+{
+cmp #$80:ror a
+ror zfcval			; C set from old bit 7
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_sll
+{
+sec:rol a
+ror zfcval			; C set from old bit 7
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdo_srl
+{
+lsr a
+ror zfcval			; C set from old bit 7
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+stz zfhval			; H reset
+sta zfpval			; P set from result
+stz zfnval			; N reset
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_daa
 {
 ; http://www.worldofspectrum.org/faq/reference/z80reference.htm#DAA
 
@@ -433,7 +554,7 @@ ZNEXT 4
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zdi
+.zop_di
 {
 stz ziff1:stz ziff2
 
@@ -443,7 +564,7 @@ ZNEXT 4
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zei
+.zop_ei
 {
 lda #1:sta ziff1:sta ziff2
 
@@ -453,7 +574,7 @@ ZNEXT 4
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zrst
+.zop_rst
 {
 lsr a:and #%00111000:sta zop__tmp
 
