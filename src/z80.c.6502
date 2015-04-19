@@ -199,6 +199,36 @@ ENDMACRO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Operates on A. Stores result in `zploc'.
+
+; Changes: A, X. Preserves: Y.
+MACRO DO_ZINC zploc
+tax:inc a:sta zploc
+sta zfszval
+sta zf53val
+lda #ZP0_VALUE:cpx #$7f:bne nv:lda #ZP1_VALUE:.nv:sta zfpval
+txa:eor #1:eor zploc:sta zfhval
+stz zfnval
+ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Operates on A. Stores result in `zploc'.
+
+; Changes: A, X. Preserves: Y.
+MACRO DO_ZDEC zploc
+tax:dec a:sta zploc
+sta zfszval
+sta zf53val
+lda #ZP0_VALUE:cpx #$80:bne nv:lda #ZP1_VALUE:.nv:sta zfpval
+txa:eor #$ff:eor zploc:sta zfhval
+lda #$80:sta zfnval
+ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 MACRO DO_ZADD
 sta zop__tmp			    ; zop__tmp=operand B
 lda zra:tax:adc zop__tmp:sta zra    ; zra=result

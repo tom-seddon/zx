@@ -67,3 +67,6 @@
 
 ; Temporary value for SUB.
 .zsub__tmp skip 1
+
+; Temporary storage for (IX+d).
+.zindex__tmp skip 2
