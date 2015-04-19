@@ -528,3 +528,21 @@ bcs set
 .set:jmp (zop_table_1xxxxxxx,X)
 }
 }
+
+.zprefixdd
+{
+jsr zfetch:inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_DD_0xxxxxxx,X)
+.b7set:jmp (zop_table_DD_1xxxxxxx,X)
+}
+
+.zprefixfd
+{
+jsr zfetch:inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_FD_0xxxxxxx,X)
+.b7set:jmp (zop_table_DD_1xxxxxxx,X)
+}

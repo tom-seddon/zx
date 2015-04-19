@@ -559,9 +559,9 @@ def get_unprefixed_opcodes(prefix):
                 if bq==0: instr=push(regs_16bit[prefix][bp])
                 elif bq==1:
                     if bp==0: instr=call()
-                    elif bp==1: pass # DD
+                    elif bp==1: instr=ManualInstr("zprefixdd","prefix_dd")
                     elif bp==2: pass # ED
-                    elif bp==3: pass # FD
+                    elif bp==3: instr=ManualInstr("zprefixfd","prefix_fd")
             elif bz==6:
                 instr=alu_imm(alu_mnemonics[by])
             elif bz==7:
@@ -578,6 +578,8 @@ def get_unprefixed_opcodes(prefix):
 instrs_un=get_unprefixed_opcodes(None)
 instrs_dd=get_unprefixed_opcodes(0xdd)
 instrs_fd=get_unprefixed_opcodes(0xfd)
+
+# instrs_cb=get_cb_opcodes(None)
 
 opcode_by_dis={}
 for i,x in enumerate(instrs_un):
@@ -616,7 +618,7 @@ def generate_routines(instrs,fallback_instrs,prefix):
         if instr.label is not None: continue
 
         instr.label="zop"
-        if prefix is not None: instr.label+="%02X"%prefix
+        if prefix is not None: instr.label+="%X"%prefix
         instr.label+="%02X"%i
 
         print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
@@ -629,13 +631,14 @@ def generate_routines(instrs,fallback_instrs,prefix):
         print "}"
         print
 
+    nbad=0
     for b7 in [0,1]:
         print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
         print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
         print
 
         label="zop_table_"
-        if prefix is not None: label+="%02X_"%prefix
+        if prefix is not None: label+="%X_"%prefix
         label+="%dxxxxxxx"%b7
 
         print ".%s"%label
@@ -652,17 +655,20 @@ def generate_routines(instrs,fallback_instrs,prefix):
             if instr is None:
                 label="zbad"
                 dis="?"
+                nbad+=1
             else:
                 label=instr.label
                 dis=instr.dis
 
             line="equw %s ; "%label
-            if prefix is not None: line+="%02X "%opcode
-            line+=dis
+            if prefix is not None: line+="%X"%prefix
+            line+="%02X %s"%(opcode,dis)
 
             print line
 
         print
+
+    print>>sys.stderr,"%s: %d/256 bad"%("--" if prefix is None else "%02X"%prefix,nbad)
     
 generate_routines(instrs_un,None,None)
 generate_routines(instrs_dd,instrs_un,0xdd)

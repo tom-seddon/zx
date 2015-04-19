@@ -360,5 +360,6 @@ PRINT "ZP Left:",zp_left,~zp_left
 
 PRINT "Mem Used:",space_used,~space_used
 PRINT "Mem Left:",space_left,~space_left
+PRINT "Top:",~code_end
 
 SAVE "ZX",code_begin,code_end,start
