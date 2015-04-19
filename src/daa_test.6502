@@ -69,44 +69,37 @@ lsr a:ror n_flag
 
 jsr do_daa
 
-; Make up a Z80 status register value.
-{
-lda #0
-ldx aval_result:bpl s_done:ora #ZS_MASK:.s_done     ; S - set from result
-ldx aval_result:bne z_done:ora #ZZ_MASK:.z_done     ; Z - set from result
-ldx h_flag:beq h_done:ora #ZH_MASK:.h_done   ; H - unaffected
-ldx aval_result:ora p_flag_values,X		     ; P - set from result
-ldx n_flag:beq n_done:ora #ZN_MASK:.n_done   ; N - unaffected
-ldx c_result:beq c_done:ora #ZC_MASK:.c_done ; C - set by instruction
-sta fval_result
-
-; Fudge bits 5 and 3
-lda aval_result:and #%00101000:ora fval_result:sta fval_result
-}
-
 ldy #1:lda (fmsptr),Y:sta fmsa:ldy #0:lda (fmsptr),Y:sta fmsf
 ldx #fmsptr:jsr incz16:jsr incz16
+
+{
+lda #1:sta result_good
+lda fmsa:cmp aval_result:bne bad
+lda fmsf:cmp fval_result:beq check_done
+.bad:stz result_good
+.check_done
+; .good:jsr printfstr:equs 130,"GOOD",255:bra next
+; .bad:jsr printfstr:equs 129,"BAD ",255
+; .next
+}
+
+lda result_good:bne next_value
 
 jsr printfstr:equs "NHC=",255:
 lda n_flag:jsr print_flag:lda h_flag:jsr print_flag:lda c_flag:jsr print_flag
 jsr printfstr:equs " A=",1,aval_input,"; AF=",2,aval_result,fval_result," (FMS=",2,fmsa,fmsf,")",255
 
-{
-lda fmsa:cmp aval_result:bne bad
-lda fmsf:cmp fval_result:bne bad
-.good:jsr printfstr:equs 130,"GOOD",255:bra next
-.bad:jsr printfstr:equs 129,"BAD ",255
-.next
-}
-
 jsr $ffe7
 ; lda #13:jsr $ffee
 
+.next_value
 inc val_counter:{beq next:jmp loop:.next}
 
 inc flags_counter:lda flags_counter:cmp #8:{beq next:jmp loop:.next}
 
 rts
+
+.result_good:brk
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -182,82 +175,49 @@ rts
 
 .do_daa
 {
-lda aval_input:and #$f:sta aval_low
-lda aval_input:lsr a:lsr a:lsr a:lsr a:sta aval_high
 
-; default results...
-lda aval_input:sta aval_result:lda c_flag:asl a:lda #0:rol a:sta c_result
+; http://www.worldofspectrum.org/faq/reference/z80reference.htm#DAA
 
-stz index
-lda n_flag:asl a:rol index
-lda c_flag:asl a:rol index
-lda h_flag:and #$10:beq n_done:sec:.n_done:rol index
-lda index:asl a:tax
+lda #0
+stz c_result
 
-jmp (daa_table,X)
-
-.daa_table
-equw n0c0h0,n0c0h1,n0c1h0,n0c1h1
-equw n1c0h0,n1c0h1,n1c1h0,n1c1h1
-
-.n0c0h0
+; Select upper nybble
 {
-lda aval_low:cmp #$a:lda aval_high:bcs right
-.left:cmp #$a:bcc add00
-.add60:lda aval_input:clc:adc #$60:.finish_and_set_c:sta aval_result:lda #1:sta c_result:.add00:rts
-.right:cmp #$9:lda aval_input:bcs add66
-.add06:clc:adc #$06:sta aval_result:stz c_result:rts
-.add66:clc:adc #$66:bra finish_and_set_c
+ldx aval_input:cpx #$9a:bcs adjust_6x
+ldx c_flag:bpl got_upper
+.adjust_6x:ora #$60:ldx #1:stx c_result
+.got_upper
 }
 
-.n0c0h1
+; Select lower nybble
 {
-lda aval_low:cmp #$04:bcs add00
-lda aval_high:cmp #$0a:bcs add66
-.add06:lda aval_input:clc:adc #$06:sta aval_result:stz c_result:rts
-.add66:lda aval_input:clc:adc #$66:sta aval_result:lda #1:sta c_result:.add00:rts
+tax:lda aval_input:and #$0f:cmp #10:bcs adjust_x6
+lda h_flag:and #$10:beq got_lower
+.adjust_x6:txa:ora #$06:tax
+.got_lower:txa
 }
 
-.n0c1h0
+; Adjust
 {
-lda aval_high:cmp #$03:bcs add00
-lda aval_low:cmp #$0a:bcs add66
-.add60:lda aval_input:clc:adc #$60:.finish_and_set_c:sta aval_result:lda #1:sta c_result:.add00:rts
-.add66:lda aval_input:clc:adc #$66:bra finish_and_set_c
+ldx n_flag:bmi sub
+.add:clc:adc aval_input:sta aval_result:bra adjusted
+.sub:sta aval_result:sec:lda aval_input:sbc aval_result:sta aval_result
+.adjusted
 }
 
-.n0c1h1
+; Make up Z80 status register value.
 {
-lda aval_high:cmp #$04:bcs add00
-lda aval_low:cmp #$04:bcs add00
-.add66:lda aval_input:clc:adc #$66:sta aval_result:lda #1:sta c_result:.add00:rts
-}
+lda aval_result:and #%00101000	; 5/3 - set from result
+ldx aval_result:bpl s_done:ora #ZS_MASK:.s_done:bne z_done:ora #ZZ_MASK:.z_done ; S/Z - set from result
+ora p_flag_values,X			     ; P - set from result
+ldx n_flag:beq n_done:ora #ZN_MASK:.n_done   ; N - unaffected
+ldx c_result:beq c_done:ora #ZC_MASK:.c_done ; C - set/reset
+sta fval_result
 
-.n1c0h0
-{
+; Set H.
+lda aval_input:eor aval_result:and #$10:ora fval_result:sta fval_result
+}
 rts
-}
-
-.n1c0h1
-{
-lda aval_high:cmp #$09:bcs add00
-lda aval_low:cmp #$06:bcc add00
-clc:lda aval_input:adc #$fa:sta aval_result:stz c_result:.add00:rts
-}
-
-.n1c1h0
-{
-lda aval_high:cmp #$07:bcc add00
-lda aval_low:cmp #$0a:bcs add00
-clc:lda aval_input:adc #$a0:sta aval_result:lda #1:sta c_result:.add00:rts
-}
-
-.n1c1h1
-{
-lda aval_high:cmp #$06:bcc add00:cmp #$08:bcs add00
-lda aval_low:cmp #$06:bcc add00
-clc:lda aval_input:adc #$9a:sta aval_result:lda #1:sta c_result:.add00:rts
-}
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
