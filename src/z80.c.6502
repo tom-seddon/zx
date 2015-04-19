@@ -148,13 +148,14 @@ rts
 ; Packs the zfXXX values into the F register.
 .zpack_flags
 {
+lda zfhval:and #ZH_MASK:sta zrf
+
 lda zf53val:and #%00101000
-ldx zfhval:beq nh:ora #ZH_MASK:.nh
 bit zfcval:bpl noc:ora #ZC_MASK:.noc
 bit zfnval:bpl non:ora #ZN_MASK:.non
 ldx zfszval:ora sz_flag_values,X
 ldx zfpval:ora p_flag_values,X
-sta zrf
+ora zrf:sta zrf
 rts
 }
 
@@ -180,6 +181,9 @@ ENDMACRO
 
 MACRO ZNEXT cycles
 jmp znext
+ENDMACRO
+
+MACRO ZTSTATES n
 ENDMACRO
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -209,6 +213,31 @@ clc
 DO_ZADD
 ZNEXT 0
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_ZADD16_OR_ADC16 dl,dh,sl,sh,is_adc
+IF is_adc:asl zfcval:ELSE:clc:ENDIF
+
+lda dl:adc sl:sta dl
+
+IF dh==sh
+lda dh:tax:adc sh:sta dh
+IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
+txa:eor sh:eor dh:sta zfhval	; Set/reset H
+ELSE
+lda sh:sta zop__tmp
+lda dh:tax:adc sh:sta dh
+IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
+txa:eor zop__tmp:eor dh:sta zfhval ; Set/reset H
+ENDIF
+
+stz zfnval			; Reset N
+ror zfcval			; Set/reset C
+ENDMACRO
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -265,7 +294,7 @@ and zra:sta zra
 sta zf53val			; Set bits 5+3
 sta zfszval			; Set/reset S+Z
 sta zfpval			; Set/reset P
-lda #128:sta zfhval		; Set H
+lda #ZH_MASK:sta zfhval		; Set H
 stz zfnval			; Reset N
 stz zfhval			; Reset H
 stz zfcval			; Reset C

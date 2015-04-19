@@ -7,7 +7,7 @@ start:
 	ld sp,$def0
 	ld a,$11
 	ld l,$f0
-	add a,l
+	;; add a,l
 	nop
 	
 
