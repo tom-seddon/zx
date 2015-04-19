@@ -52,6 +52,10 @@ class Instr:
         self.nt=nt[:]
         self.label=None
 
+class ManualInstr:
+    def __init__(self,label):
+        self.label=label
+
 def ld_r8_r8(d,s):
     if d is None or s is None: return None
 
@@ -206,8 +210,20 @@ def inc_r8(r):
                  ["lda zr%s:tax:inc a:sta zr%s"%(r,r),
                   "sta zfszval",
                   "sta zf53val",
-                  "lda #ZP0_VALUE:cpx #$7f:beq nv:lda #ZP1_VALUE:.nv:sta zfpval",
-                  "txa:eor #1:eor zr%s:sta zfhval"%r],
+                  "lda #ZP0_VALUE:cpx #$7f:bne nv:lda #ZP1_VALUE:.nv:sta zfpval",
+                  "txa:eor #1:eor zr%s:sta zfhval"%r,
+                  "stz zfnval"],
+                 [4])
+
+def dec_r8(r):
+    if r is None: return None
+    return Instr("dec %s"%r,
+                 ["lda zr%s:tax:dec a:sta zr%s"%(r,r),
+                  "sta zfszval",
+                  "sta zf53val",
+                  "lda #ZP0_VALUE:cpx #$80:bne nv:lda #ZP1_VALUE:.nv:sta zfpval",
+                  "txa:eor #$ff:eor zr%s:sta zfhval"%r,
+                  "lda #$80:sta zfnval"],
                  [4])
 
 def inc_r16(r):
@@ -272,10 +288,7 @@ def callcc(cond):
     return Instr("call %s,nn"%cond_names[cond],
                  ["jsr zfetch2:sta zop__tmp",
                   conds[cond],
-                  "ldx zrspl:ldy zrsph",
-                  "lda zrpch:STORE_XY_PREDEC",
-                  "lda zrpcl:STORE_XY_PREDEC",
-                  "stx zrspl:sty zrsph",
+                  "ZPUSH_PC",
                   "lda zfetch2_lsb:sta zrpcl",
                   "lda zop__tmp:sta zrpch",
                   "ZTSTATES(4):ZTSTATES(3)",
@@ -285,10 +298,7 @@ def callcc(cond):
 def call():
     return Instr("call nn",
                  ["jsr zfetch2:sta zop__tmp",
-                  "ldx zrspl:ldy zrsph",
-                  "lda zrpch:STORE_XY_PREDEC",
-                  "lda zrpcl:STORE_XY_PREDEC",
-                  "stx zrspl:sty zrsph",
+                  "ZPUSH_PC",
                   "lda zfetch2_lsb:sta zrpcl",
                   "lda zop__tmp:sta zrpch"],
                  [4,3,4,3,3])
@@ -386,10 +396,9 @@ for bx,by,bz in itertools.product(range(4),range(8),range(8)):
         elif bz==3:
             if bq==0: ins(inc_r16(regs_16bit[prefix][bp]))
             elif bq==1: ins(dec_r16(regs_16bit[prefix][bp]))
-        elif bz==4:
-            ins(inc_r8(regs_8bit[prefix][by]))
-        elif bz==6:
-            ins(ld_r8_imm(regs_8bit[prefix][by]))
+        elif bz==4: ins(inc_r8(regs_8bit[prefix][by]))
+        elif bz==5: ins(dec_r8(regs_8bit[prefix][by]))
+        elif bz==6: ins(ld_r8_imm(regs_8bit[prefix][by]))
         elif bz==7:
             if by==0: ins(Instr("rlca",
                                 ["lda zra:cmp #$80:rol a:sta zra",
@@ -415,6 +424,7 @@ for bx,by,bz in itertools.product(range(4),range(8),range(8)):
                                  "stz zfhval",
                                  "stz zfnval",],
                                 [4]))
+            elif by==4: ins(ManualInstr("zdaa"))
             elif by==5: ins(Instr("cpl",
                                   ["lda zra:eor #$ff:sta zra",
                                    "lda #1:sta zfhval",
@@ -444,7 +454,7 @@ for bx,by,bz in itertools.product(range(4),range(8),range(8)):
             ins(retcc(by))
         elif bz==1:
             if bq==0:
-                ins(pop_r16(regs_16bit[prefix][bp]))
+                ins(pop_r16(stackable_regs_16bit[prefix][bp]))
             elif bq==1:
                 if bp==0: ins(ret())
                 elif bp==1: ins(exx())
@@ -454,8 +464,11 @@ for bx,by,bz in itertools.product(range(4),range(8),range(8)):
             ins(jpcc(by))
         elif bz==3:
             if by==0: ins(jp())
+            elif by==1: pass    # CB
             elif by==4: ins(ex_sp(regs_16bit[prefix][2]))
             elif by==5: ins(ex_de_hl())
+            elif by==6: ins(ManualInstr("zdi"))
+            elif by==7: ins(ManualInstr("zei"))
         elif bz==4:
             ins(callcc(by))
         elif bz==5:
@@ -468,10 +481,13 @@ for bx,by,bz in itertools.product(range(4),range(8),range(8)):
         elif bz==6:
             ins(alu_imm(alu_mnemonics[by]))
         elif bz==7:
-            pass                # RST
+            ins(ManualInstr("zrst"))
         pass
 
     if instr is not None: instrs[opcode]=instr
+
+##########################################################################
+##########################################################################
 
 for i,instr in enumerate(instrs):
     if instr is None: continue
@@ -482,7 +498,7 @@ for i,instr in enumerate(instrs):
     print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
     print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
     print
-    print ".%s"%instr.label
+    print ".%s ; %s"%(instr.label,instr.dis)
     print "{"
     for line in instr.lines: print line
     print "ZNEXT %d"%sum(instr.nt)

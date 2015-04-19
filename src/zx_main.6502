@@ -351,10 +351,14 @@ space_left=$8000-code_end
 zp_used=zp_end
 zp_left=$90-zp_used
 
-PRINT "ZP Used: ",zp_used,~zp_used
-PRINT "ZP Left: ",zp_left,~zp_left
+ops_used=ops_end-ops_start
 
-PRINT "Mem Used: ",space_used,~space_used
+PRINT "Ops:",ops_used,~ops_used
+
+PRINT "ZP Used:",zp_used,~zp_used
+PRINT "ZP Left:",zp_left,~zp_left
+
+PRINT "Mem Used:",space_used,~space_used
 PRINT "Mem Left:",space_left,~space_left
 
 SAVE "ZX",code_begin,code_end,start

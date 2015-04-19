@@ -28,6 +28,10 @@
 .zrsph skip 1
 .zrpcl skip 1
 .zrpch skip 1
+
+.ziff1 skip 1
+.ziff2 skip 1
+
 .zrend
 
 ; Additional related storage

@@ -189,6 +189,16 @@ ENDMACRO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+MACRO ZPUSH_PC
+ldx zrspl:ldy zrsph
+lda zrpch:STORE_XY_PREDEC
+lda zrpcl:STORE_XY_PREDEC
+stx zrspl:sty zrsph
+ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 MACRO DO_ZADD
 sta zop__tmp			    ; zop__tmp=operand B
 lda zra:tax:adc zop__tmp:sta zra    ; zra=result
@@ -338,7 +348,98 @@ ZNEXT 0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+.zdaa
+{
+; http://www.worldofspectrum.org/faq/reference/z80reference.htm#DAA
+
+lda #0				; adjustment
+tay				; carry flag
+
+; Select adjustment value upper nybble.
+{
+ldx zra:cpx #$9a:bcs adjust_6x
+ldx zfcval:bpl done
+.adjust_6x:ora #$60		; adjustment value is $6x
+dey				; set carry
+.done
+}
+
+; Select adjustment value lower nybble.
+{
+tax:lda zra:and #$0f:cmp #10:bcs adjust_x6
+lda zfhval:and #$10:beq done
+.adjust_x6:txa:ora #$06:tax	; adjustment value is $x6
+.done:txa
+}
+
+; Set Z80 carry flag.
+sty zfcval
+
+; Get original accumulator for later.
+ldy zra
+
+; Adjust accumulator.
+{
+ldx zfnval:bmi sub
+.add:clc:adc zra:sta zra:bra adjusted
+.sub:sta zop__tmp:sec:tya:sbc zop__tmp:sta zra
+.adjusted
+}
+
+; Set flags.
+{
+sta zf53val			; 5/3 set from result.
+sta zfszval			; S/Z set from result.
+sta zfpval			; P set from result.
+; N unaffected.
+; C already set above.
+tya:eor zra:sta zfhval		; H set from operation.
+}
+
+; And that's it.
+ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zdi
+{
+stz ziff1:stz ziff2
+
+ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zei
+{
+lda #1:sta ziff1:sta ziff2
+
+ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zrst
+{
+lsr a:and #%00111000:sta zop__tmp
+
+ZPUSH_PC
+
+lda zop__tmp:sta zrpcl:stz zrpch
+
+ZNEXT 11
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.ops_start
 include "../build/z80ops.generated.6502"
+.ops_end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
