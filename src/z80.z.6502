@@ -1,11 +1,8 @@
 ; Z80 registers
 .zrbegin
-.zrb skip 1
-.zrc skip 1
-.zrd skip 1
-.zre skip 1
-.zrh skip 1
-.zrl skip 1
+.zrc skip 1:.zrb skip 1
+.zre skip 1:.zrd skip 1
+.zrl skip 1:.zrh skip 1
 .zra skip 1
 .zrf skip 1
 
@@ -20,12 +17,9 @@
 
 .zri skip 1
 .zrr skip 1
-.zrixl skip 1
-.zrixh skip 1
-.zriyl skip 1
-.zriyh skip 1
-.zrspl skip 1
-.zrsph skip 1
+.zrixl skip 1:.zrixh skip 1
+.zriyl skip 1:.zriyh skip 1
+.zrspl skip 1:.zrsph skip 1
 .zrpcl skip 1
 .zrpch skip 1
 
@@ -33,6 +27,14 @@
 .ziff2 skip 1
 
 .zrend
+
+; The 16-bit registers must be placed together, low byte first.
+IF zrb!=zrc+1:ERROR "BC not together":ENDIF
+IF zrd!=zre+1:ERROR "DE not together":ENDIF
+IF zrh!=zrl+1:ERROR "HL not together":ENDIF
+IF zrixh!=zrixl+1:ERROR "IX not together":ENDIF
+IF zriyh!=zriyl+1:ERROR "IY not together":ENDIF
+IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 
 ; Additional related storage
 
