@@ -211,16 +211,21 @@ ENDMACRO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-MACRO DO_PUSH_PC
+.zpush_pc
+{
 ldx zrspl:ldy zrsph
 lda zrpch:DO_STORE_XY_PREDEC
 lda zrpcl:DO_STORE_XY_PREDEC
 stx zrspl:sty zrsph
-ENDMACRO
+rts
+}
 
-.zpush_pc
+.zpop_pc
 {
-DO_PUSH_PC
+ldx zrspl:ldy zrsph
+DO_LOAD_XY_POSTINC:sta zrpcl
+DO_LOAD_XY_POSTINC:sta zrpch
+stx zrspl:sty zrsph
 rts
 }
 
@@ -309,7 +314,7 @@ rts
 
 ; X=ZP address of LSB of source
 
-.do_zadc16
+.do_zadc16_hl
 {
 
 ; HL = HL + Rhs
@@ -345,7 +350,7 @@ bvs setp			; P from result
 
 ; X=ZP address of LSB of source
 
-.do_sbc16
+.do_zsbc16_hl
 {
 
 ; HL = HL - Rhs - C
@@ -639,6 +644,37 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Entry: X (LSB), Y (MSB) = port
+
+; Exit: A = byte read
+.zdo_in
+{
+jsr call_handler
+
+sta zfszval			; N/Z set from result
+sta zf53val			; 5/3 set from result
+sta zfpval			; P from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+; C unchanged
+
+rts
+
+.call_handler:jmp (zin_handler)
+}
+
+; Entry: X (LSB), Y (MSB) - port; A - byte to write
+.zdo_out
+{
+jsr call_handler
+rts
+
+.call_handler:jmp (zout_handler)
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 .zop_daa
 {
 ; http://www.worldofspectrum.org/faq/reference/z80reference.htm#DAA
@@ -723,6 +759,172 @@ jsr zpush_pc
 lda zop__tmp:sta zrpcl:stz zrpch
 
 ZNEXT 11
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_halt
+{
+jmp zbad
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_neg
+{
+
+; A = 0 - A
+
+sec
+lda #0:sbc zra:sta zra
+
+lda zfszval			; S/Z from result
+sta zf53val			; 5/3 from result
+txa:eor zra:sta zfhval		; H from result
+lda #$80:sta zfnval		; N=1
+cpx #1:ror zfcval		; C from result
+cpx #$80:beq setv		; P from result
+.resetv:lda #ZP0_VALUE:sta zfpval:ZNEXT 8
+.setv:lda #ZP1_VALUE:sta zfpval:ZNEXT 8
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_retn
+{
+jsr zpop_pc
+lda ziff2:sta ziff1
+ZNEXT 14
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_reti
+; Fall through to RET...
+.zop_ret
+{
+jsr zpop_pc
+ZNEXT 10
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_im
+{
+; extract bits 3 and 4 of opcode
+lsr a				; get opcode
+lsr a:lsr a:lsr a		; shift bits 3,4 down
+and #%00000011			; get bits 3,4
+sta zinterrupt_mode
+ZNEXT 8
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_ld_i_a
+{
+lda zri:sta zra
+ZNEXT 9
+}
+
+.zop_ld_r_a
+{
+lda zra:sta zrr:sta zrr_bit7
+rts
+}
+
+.zop_ld_a_i
+{
+lda zri:sta zra
+jmp finish_special_ld
+}
+
+.zop_ld_a_r
+{
+lda zrr:and #%0111111			  ; get bits 0-6
+bit zrr_bit7:bpl done:ora #%10000000:.done ; fix up bit 7
+jmp finish_special_ld
+}
+
+.zop_rrd
+{
+
+; acc      mem         acc      mem
+; AAAAaaaa MMMMmmmm -> AAAAmmmm aaaaMMMM
+
+ldx zrl:ldy zrh:jsr load_xy	; MMMMmmmm
+sta zop__tmp			; MMMMmmmm
+
+lsr a:lsr a:lsr a:lsr a		; 0000MMMM
+sta zindex__tmp+0		; 0000MMMM
+lda zra				; AAAAaaaa
+asl a:asl a:asl a:asl a		; aaaa0000
+ora zindex__tmp+0		; aaaaMMMM
+jsr store_xy
+
+lda zra:and #%11110000:sta zra	; AAAA0000
+lda zop__tmp:and #%00001111	; 0000mmmm
+ora zra:sta zra			; AAAAmmmm
+
+sta zfszval			; S+Z from result
+sta zf53val			; 5+3 from result
+stz zfhval			; H=0
+sta zfpval			; P from result
+stz zfnval			; N reset
+; C unchanged
+
+ZNEXT 18
+}
+
+.zop_rld
+{
+
+; mem      acc         mem      acc
+; AAAAaaaa MMMMmmmm -> AAAAMMMM mmmmaaaa
+
+ldx zrl:ldy zrh:jsr load_xy	; MMMMmmmm
+sta zop__tmp			; MMMMmmmm
+
+lsr a:lsr a:lsr a:lsr a		; 0000MMMM
+sta zindex__tmp+0		; 0000MMMM
+lda zra:and #%11110000		; AAAA0000
+ora zindex__tmp+0		; AAAAMMMM
+jsr store_xy
+
+lda zop__tmp			; MMMMmmmm
+asl a:asl a:asl a:asl a		; mmmm0000
+sta zop__tmp			; mmmm0000
+lda zra:and #%00001111		; 0000aaaa
+ora zop__tmp			; mmmmaaaa
+sta zra
+
+sta zfszval			; S+Z from result
+sta zf53val			; 5+3 from result
+stz zfhval			; H=0
+sta zfpval			; P from result
+stz zfnval			; N reset
+; C unchanged
+
+ZNEXT 18
+
+}
+
+.finish_special_ld
+{
+sta zfszval			; S+Z from result
+sta zf53val			; 5/3 from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+; C unchanged
+lda ziff2:bne setp
+.resetp:lda #ZP0_VALUE:sta zfpval:ZNEXT 9
+.setp:lda #ZP1_VALUE:sta zfpval:ZNEXT 9
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -869,5 +1071,25 @@ asl a:tax:bcs b7set
 .b7set:jmp (zop_table_CB_1xxxxxxx,X)
 }
 
+.zprefixed
+{
+jsr zfetch:inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_ED_0xxxxxxx,X)
+.b7set:jmp (zop_table_ED_1xxxxxxx,X)
+}
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zhandle_in_default
+{
+lda #0
+rts
+}
+
+.zhandle_out_default
+{
+rts
+}

@@ -301,6 +301,17 @@ ldx #<cmd:ldy #>cmd:jmp oscli
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+.handle_in
+{
+}
+
+.handle_out
+{
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 .start
 {
 jsr check
@@ -308,6 +319,10 @@ jsr clear
 ;lda #'A':jsr save_swram
 jsr loadprog
 ;lda #'B':jsr save_swram
+
+lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
+lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
+
 jsr zrun
 ;lda #'C':jsr save_swram
 

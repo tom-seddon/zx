@@ -38,12 +38,11 @@ IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 
 ; Additional related storage
 
-; ; Pointer for read/write.
-; .zptrl skip 1
-; .zptrh skip 1
+; Z80 interrupt mode.
+.zinterrupt_mode skip 0
 
-; 8th bit of R.
-.zr8 skip 1
+; bit 7 = bit 7 of R.
+.zrr_bit7 skip 1
 
 ; Last results - used to set flags.
 .zfszval skip 1			; result that should drive S and Z

@@ -132,6 +132,13 @@ def ld_r8_imm(d):
                  ["jsr zfetch:sta zr%s"%d], # imm
                  [4,3])
 
+def ld_ind8_imm(ir):
+    return Instr("ld (%s),n"%ir.indfull,
+                 x_write_ind(ir,["stx zindex__tmp+0:sty zindex__tmp+1",
+                                 "jsr zfetch",
+                                 "ldx zindex__tmp+0:ldy zindex__tmp+1"]),
+                 [4,3,3])
+
 def ld_r8_ind(d,ir):
     if d is None or ir is None: return None
     ir,d=fixup_ir_r(ir,d)
@@ -321,10 +328,14 @@ def add_r16_r16(d,s):
                  ["ldx #zr%s:ldy #zr%s:jsr do_zadd16"%(d.l,s.l)],
                  [4,4,3])
 
-def adc_hl_16(r):
-    if d is None or s is None: return None
+def adc_hl_r16(r):
     return Instr("adc hl,%s"%(r.full),
                  ["ldx #zr%s:jsr do_zadc16_hl"%(r.l)],
+                 [4,4,4,3])
+
+def sbc_hl_r16(r):
+    return Instr("sbc hl,%s"%(r.full),
+                 ["ldx #zr%s:jsr do_zsbc16_hl"%(r.l)],
                  [4,4,4,3])
 
 def jp():
@@ -341,13 +352,13 @@ def jpcc(cond):
                   ".no"],
                  [4,3,3])
 
-def ret():
-    return Instr("ret",
-                 ["ldx zrspl:ldy zrsph",
-                  "jsr load_xy_postinc:sta zrpcl",
-                  "jsr load_xy_postinc:sta zrpch",
-                 "stx zrspl:sty zrsph"],
-                 [4,3,3])
+# def ret():
+#     return Instr("ret",
+#                  ["ldx zrspl:ldy zrsph",
+#                   "jsr load_xy_postinc:sta zrpcl",
+#                   "jsr load_xy_postinc:sta zrpch",
+#                  "stx zrspl:sty zrsph"],
+#                  [4,3,3])
 
 def retcc(cond):
     return Instr("ret %s"%cond_names[cond],
@@ -450,6 +461,20 @@ def res_ind(bitn,ir,dest_reg=None):
                  x_rmw_ind(ir,lines),
                  [4,4,4,3])
 
+def out_c_r(r):
+    return Instr("out (C),%s"%(r if r is not None else "0"),
+                 ["lda %s"%("zr%s"%r if r is not None else "#0"),
+                  "ldx zrc:ldy zrb:jsr zdo_out"],
+                 [4,4,4])
+
+def in_r_c(r):
+    lines=["ldx zrc:ldy zrb:jsr zdo_in"]
+    if r is not None: lines+=["sta zr%s"%r]
+    
+    return Instr("in %s(C)"%("%s "%r if r is not None else ""),
+                 lines,
+                 [4,4,4])
+
 # def family(prefix,opcode,d1_val,mnem):
 #     d0=(opcode>>6)&3
 #     d1=(opcode>>3)&7
@@ -478,6 +503,11 @@ conds=["ldx zfszval:beq no", # NZ
        "bit zfszval:bpl no"]                    # M
 cond_names=["nz","z","nc","c","po","pe","p","m"]
 
+nop=Instr("nop",
+          [],
+          [4])
+
+
 # This is the scheme described in http://www.z80.info/decoding.htm.
 def get_unprefixed_opcodes(prefix):
     instrs=256*[None]
@@ -491,8 +521,7 @@ def get_unprefixed_opcodes(prefix):
         if bx==0:
             if bz==0:
                 if by==0:
-                    # nop
-                    pass
+                    instr=nop
                 elif by==1:
                     # ex af,af'
                     instr=ex_af_af()
@@ -542,7 +571,8 @@ def get_unprefixed_opcodes(prefix):
                 if by==6: instr=dec_ind8(regs_16bit[prefix][2])
                 else: instr=dec_r8(regs_8bit[prefix][by])
             elif bz==6:
-                instr=ld_r8_imm(regs_8bit[prefix][by])
+                if by==6: instr=ld_ind8_imm(regs_16bit[prefix][2])
+                else: instr=ld_r8_imm(regs_8bit[prefix][by])
             elif bz==7:
                 if by==0: instr=Instr("rlca",
                                       ["lda zra:jsr zdo_rlc:sta zra"],
@@ -574,9 +604,7 @@ def get_unprefixed_opcodes(prefix):
                                          "stz zfnval"],
                                         [4])
         elif bx==1:
-            if bz==6 and by==6:
-                # HALT
-                pass
+            if bz==6 and by==6: instr=ManualInstr("zop_halt","halt")
             elif bz==6: instr=ld_r8_ind(regs_8bit[prefix][by],regs_16bit[prefix][2])
             elif by==6: instr=ld_ind_r8(regs_16bit[prefix][2],regs_8bit[prefix][bz])
             else: instr=ld_r8_r8(regs_8bit[prefix][by],regs_8bit[prefix][bz])
@@ -590,7 +618,7 @@ def get_unprefixed_opcodes(prefix):
                 if bq==0:
                     instr=pop_r16(stackable_regs_16bit[prefix][bp])
                 elif bq==1:
-                    if bp==0: instr=ret()
+                    if bp==0: instr=ManualInstr("zop_ret","ret")
                     elif bp==1: instr=exx()
                     elif bp==2: instr=jp_ind(regs_16bit[prefix][2])
                     elif bp==3: instr=ld_r16_r16(reg_sp,regs_16bit[prefix][2])
@@ -602,6 +630,13 @@ def get_unprefixed_opcodes(prefix):
                     if prefix==0xdd: instr=ManualInstr("zprefixddcb","prefix_ddcb")
                     elif prefix==0xfd: instr=ManualInstr("zprefixfdcb","prefix_fdcb")
                     elif prefix is None: instr=ManualInstr("zprefixcb","prefix_cb")
+                elif by==2: instr=Instr("out (n),a",
+                                        ["jsr zfetch:tax:lda zra:tay:jsr zdo_out"],
+                                        [4,3,4])
+                elif by==3: instr=Instr("in a,(n)",
+                                        ["jsr zfetch:tax:ldy zra:jsr zdo_in",
+                                         "sta zra"],
+                                        [4,3,4])
                 elif by==4: instr=ex_sp(regs_16bit[prefix][2])
                 elif by==5: instr=ex_de_hl()
                 elif by==6: instr=ManualInstr("zop_di","di")
@@ -613,7 +648,7 @@ def get_unprefixed_opcodes(prefix):
                 elif bq==1:
                     if bp==0: instr=call()
                     elif bp==1: instr=ManualInstr("zprefixdd","prefix_dd")
-                    elif bp==2: pass # ED
+                    elif bp==2: instr=ManualInstr("zprefixed","prefix_ed")
                     elif bp==3: instr=ManualInstr("zprefixfd","prefix_fd")
             elif bz==6:
                 instr=alu_imm(alu_mnemonics[by])
@@ -666,6 +701,59 @@ def get_cb_opcodes(prefix):
 ##########################################################################
 ##########################################################################
 
+def get_ed_opcodes():
+    instrs=[]
+    
+    instrs=256*[None]
+
+    neg=ManualInstr("zop_neg","neg")
+    reti=ManualInstr("zop_reti","reti")
+    retn=ManualInstr("zop_retn","retn")
+    im=ManualInstr("zop_im","im")
+
+    for bx,by,bz in itertools.product(range(4),range(8),range(8)):
+        instr=None
+        opcode=(bx<<6)|(by<<3)|(bz<<0)
+
+        bq=by&1
+        bp=by>>1
+
+        if bx==0 or bx==3:
+            instr=nop
+        elif bx==1:
+            if bz==0: instr=in_r_c(regs_8bit[None][by])
+            elif bz==1: instr=out_c_r(regs_8bit[None][by])
+            elif bz==2:
+                if bq==0: instr=adc_hl_r16(regs_16bit[None][bp])
+                elif bq==1:instr=sbc_hl_r16(regs_16bit[None][bp])
+            elif bz==3:
+                if bq==0: instr=ld_mem_r16(regs_16bit[None][bp])
+                elif bq==1: instr=ld_r16_mem(regs_16bit[None][bp])
+            elif bz==4: instr=neg
+            elif bz==5:
+                if by==1: instr=reti
+                else: instr=retn
+            elif bz==6: instr=im
+            elif bz==7:
+                if by==0: instr=ManualInstr("zop_ld_i_a","ld i,a")
+                elif by==1: instr=ManualInstr("zop_ld_r_a","ld r,a")
+                elif by==2: instr=ManualInstr("zop_ld_a_i","ld a,i")
+                elif by==3: instr=ManualInstr("zop_ld_a_r","ld a,r")
+                elif by==4: instr=ManualInstr("zop_rrd","rrd")
+                elif by==5: instr=ManualInstr("zop_rld","rld")
+                elif by==6: instr=nop
+                elif by==7: instr=nop
+        elif bx==2:
+            if bz<=3 and by>=4: pass
+            else: instr=nop
+
+        instrs[opcode]=instr
+
+    return instrs
+
+##########################################################################
+##########################################################################
+
 instrs_un=get_unprefixed_opcodes(None)
 instrs_dd=get_unprefixed_opcodes(0xdd)
 instrs_fd=get_unprefixed_opcodes(0xfd)
@@ -673,6 +761,8 @@ instrs_fd=get_unprefixed_opcodes(0xfd)
 instrs_cb=get_cb_opcodes(None)
 instrs_ddcb=get_cb_opcodes(0xdd)
 instrs_fdcb=get_cb_opcodes(0xfd)
+
+instrs_ed=get_ed_opcodes()
 
 def remove_shared(main_list,prefixed_lists):
     opcode_by_dis={}
@@ -691,7 +781,23 @@ def remove_shared(main_list,prefixed_lists):
 
 remove_shared(instrs_un,[instrs_dd,instrs_fd])
 remove_shared(instrs_cb,[instrs_ddcb,instrs_fdcb])
-    
+
+# (this doesn't work properly (yet?) - e.g., `ld (nn),hl' has multiple encodings)
+
+# # Ensure the remaining opcodes are all unique.
+# def ensure_unique(*lists):
+#     by_dis={}
+#     for xs in lists:
+#         for i,x in enumerate(xs):
+#             if x is not None:
+#                 assert x.dis not in by_dis or by_dis[x.dis][1] is x,(hex(i),
+#                                                                      x.dis,
+#                                                                      hex(by_dis[x.dis][0]),
+#                                                                      by_dis[x.dis][1].dis)
+#                 by_dis[x.dis]=(i,x)
+
+# ensure_unique(instrs_un,instrs_dd,instrs_fd,instrs_cb,instrs_ddcb,instrs_fdcb,instrs_ed)
+
 def get_max_dis_width(xs): return max([len(x.dis) for x in xs if x is not None])
 
 unw=get_max_dis_width(instrs_un)
@@ -725,7 +831,7 @@ def generate_routines(instrs,fallback_instrs,prefix):
         print "}"
         print
 
-    nbad=0
+    bads=[]
     for b7 in [0,1]:
         print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
         print ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
@@ -749,7 +855,7 @@ def generate_routines(instrs,fallback_instrs,prefix):
             if instr is None:
                 label="zbad"
                 dis="?"
-                nbad+=1
+                bads.append(opcode)
             else:
                 label=instr.label
                 dis=instr.dis
@@ -762,7 +868,7 @@ def generate_routines(instrs,fallback_instrs,prefix):
 
         print
 
-    print>>sys.stderr,"%s: %d/256 bad"%("--" if prefix is None else "%02X"%prefix,nbad)
+    print>>sys.stderr,"%s: %d/256 bad: %s"%("--" if prefix is None else "%02X"%prefix,len(bads),[hex(x) for x in bads])
     
 generate_routines(instrs_un,None,None)
 generate_routines(instrs_dd,instrs_un,0xdd)
@@ -770,37 +876,5 @@ generate_routines(instrs_fd,instrs_un,0xfd)
 generate_routines(instrs_cb,None,0xcb)
 generate_routines(instrs_ddcb,instrs_cb,0xddcb)
 generate_routines(instrs_fdcb,instrs_cb,0xfdcb)
+generate_routines(instrs_ed,None,0xed)
     
-##########################################################################
-##########################################################################
-
-# cb_instrs=[]
-# for bx,by,bz in itertools.product(range(4),range(8),range(8)):
-#     bq=by&1
-#     bp=by>>1
-    
-#     opcode=(bx<<6)|(by<<3)|(bz<<0)
-#     instr=None
-#     if bx==0:
-#         if bz==6: instr=rot_ind( 
-#         pass
-#     elif bx==1:
-#         pass
-#     elif bx==2:
-#         pass
-#     elif bx==3:
-#         pass
-        
-# for y in range(16):
-#     line=""
-#     for x in range(16):
-#         opcode=y*16+x
-#         c="*" if opcodes[opcode] is not None else "-"
-#         line+=c
-#     print>>sys.stderr,line
-        
-# n=0
-# for x in instrs:
-#     if x is not None: n+=1
-# print>>sys.stderr,"%d/%d"%(n,len(instrs))
-

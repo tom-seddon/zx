@@ -8,7 +8,8 @@ start:
 	ld a,$11
 	ld l,$f0
 	;; add a,l
-	nop
+	halt
+	
 	
 
 	
