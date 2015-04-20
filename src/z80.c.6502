@@ -16,17 +16,29 @@ rts
 ; Entry: X (LSB), Y (MSB) - address
 ; Exit: A - byte read, NZ set accordingly, X/Y preserved
 
-MACRO LOAD_XY
+MACRO DO_LOAD_XY
 lda romsel_table,Y:sta romsel;:sta $f4
 lda msb_table,Y:sta read+2
 .read:lda FIX_xx00,X
 ENDMACRO
 
-; As LOAD_XY, but increments the address afterwards.
-MACRO LOAD_XY_POSTINC
-LOAD_XY
+MACRO DO_LOAD_XY_POSTINC
+DO_LOAD_XY
 inx:bne nc:iny:.nc
 ENDMACRO
+
+.load_xy
+{
+DO_LOAD_XY
+rts
+}
+
+; As LOAD_XY, but increments the address afterwards.
+.load_xy_postinc
+{
+DO_LOAD_XY_POSTINC
+rts
+}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,31 +46,41 @@ ENDMACRO
 ; Entry: X (LSB), Y (MSB) - address; A - value to write
 ;
 ; Exit: X changed, A/Y preserved
-MACRO STORE_XY
+.store_xy
+{
 stx write+1
 ldx romsel_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .write:sta FIX_xxxx
-ENDMACRO
+rts
+}
 
 ; As above, but preserves X. 2 cycles slower, but quicker than STX
 ; zp:STORE_XY:LDX zp.
-MACRO STORE_XY_KEEPX
+MACRO DO_STORE_XY_KEEPX
 stx loadx+1
 ldx romsel_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .loadx:ldx #FIX_xx:.write:sta FIX_xx00,X
 ENDMACRO
 
-MACRO STORE_XY_PREDEC
+MACRO DO_STORE_XY_PREDEC
 dex:cpx #$ff:bne nb:dey:.nb
-STORE_XY_KEEPX
+DO_STORE_XY_KEEPX
 ENDMACRO
 
-MACRO STORE_XY_POSTINC
-STORE_XY_KEEPX
+.store_xy_predec
+{
+DO_STORE_XY_PREDEC
+rts
+}
+
+.store_xy_postinc
+{
+DO_STORE_XY_KEEPX
 inx:bne nc:iny:.nc
-ENDMACRO
+rts
+}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -66,7 +88,7 @@ ENDMACRO
 .zread
 {
 sei
-LOAD_XY
+DO_LOAD_XY
 cli
 rts
 }
@@ -74,7 +96,7 @@ rts
 .zwrite
 {
 sei
-STORE_XY
+DO_STORE_XY_KEEPX
 cli
 rts
 }
@@ -99,7 +121,7 @@ rts
 
 ldx zrpcl:ldy zrpch
 
-LOAD_XY_POSTINC
+DO_LOAD_XY_POSTINC
 
 stx zrpcl:sty zrpch
 
@@ -117,8 +139,8 @@ rts
 {
 ldx zrpcl:ldy zrpch
 
-LOAD_XY_POSTINC:sta zfetch2_lsb
-LOAD_XY_POSTINC
+DO_LOAD_XY_POSTINC:sta zfetch2_lsb
+DO_LOAD_XY_POSTINC
 
 stx zrpcl:sty zrpch
 
@@ -132,8 +154,8 @@ rts
 {
 ldx zrpcl:ldy zrpch
 
-LOAD_XY_POSTINC:sta loadx+1
-LOAD_XY_POSTINC
+DO_LOAD_XY_POSTINC:sta loadx+1
+DO_LOAD_XY_POSTINC
 
 stx zrpcl:sty zrpch
 
@@ -189,42 +211,49 @@ ENDMACRO
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-MACRO ZPUSH_PC
+MACRO DO_PUSH_PC
 ldx zrspl:ldy zrsph
-lda zrpch:STORE_XY_PREDEC
-lda zrpcl:STORE_XY_PREDEC
+lda zrpch:DO_STORE_XY_PREDEC
+lda zrpcl:DO_STORE_XY_PREDEC
 stx zrspl:sty zrsph
 ENDMACRO
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.zpush_pc
+{
+DO_PUSH_PC
+rts
+}
 
-; Operates on A. Stores result in `zploc'.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; Changes: A, X. Preserves: Y.
-MACRO DO_ZINC zploc
-tax:inc a:sta zploc
+.zdo_inc
+{
+sta zop__tmp:inc a:tax:eor zop__tmp:sta zfhval:txa
 sta zfszval
 sta zf53val
-lda #ZP0_VALUE:cpx #$7f:bne nv:lda #ZP1_VALUE:.nv:sta zfpval
-txa:eor #1:eor zploc:sta zfhval
 stz zfnval
-ENDMACRO
+cmp #$80:beq setv
+.resetv:ldx #ZP0_VALUE:stx zfpval:rts
+.setv:ldx #ZP1_VALUE:stx zfpval:rts
+}
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; Operates on A. Stores result in `zploc'.
 
 ; Changes: A, X. Preserves: Y.
-MACRO DO_ZDEC zploc
-tax:dec a:sta zploc
+.zdo_dec
+{
+sta zop__tmp:dec a:tax:eor #$ff:eor zop__tmp:sta zfhval:txa
 sta zfszval
 sta zf53val
-lda #ZP0_VALUE:cpx #$80:bne nv:lda #ZP1_VALUE:.nv:sta zfpval
-txa:eor #$ff:eor zploc:sta zfhval
-lda #$80:sta zfnval
-ENDMACRO
+ldx #$80:stx zfnval
+cmp #$7f:beq setv
+.resetv:ldx #ZP0_VALUE:stx zfpval:rts
+.setv:ldx #ZP1_VALUE:stx zfpval:rts
+}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -499,6 +528,22 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+.zdo_bit
+{
+; SZ5H3VNC
+; *Z513*0-
+sta zfszval			; S/Z set from result
+sta zf53val			; 5/3 set from result
+ldy #ZP0_VALUE:tax:beq pv_done:ldy #ZP1_VALUE:.pv_done ; PV set same as Z
+lda #$10:sta zfhval		; H set
+stz zfnval			; N reset
+; C unalterened
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 .zop_daa
 {
 ; http://www.worldofspectrum.org/faq/reference/z80reference.htm#DAA
@@ -578,11 +623,37 @@ ZNEXT 4
 {
 lsr a:and #%00111000:sta zop__tmp
 
-ZPUSH_PC
+jsr zpush_pc
 
 lda zop__tmp:sta zrpcl:stz zrpch
 
 ZNEXT 11
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Gets effective address for (IX+d) or (IY+d).
+
+; Entry: i[xy]l,i[xy]h - IX value; zdisplacement - 8-bit displacement
+
+; Exit: X (LSB), Y (MSB) - effective address
+
+MACRO DO_GET_INDEX_DISPLACED l,h
+clc:lda l:adc zdisplacement:tax
+ldy h:bcc nc:iny:.nc
+ENDMACRO
+
+.zget_ix_displaced
+{
+DO_GET_INDEX_DISPLACED zrixl,zrixh
+rts
+}
+
+.zget_iy_displaced
+{
+DO_GET_INDEX_DISPLACED zriyl,zriyh
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -650,9 +721,35 @@ bcs set
 }
 }
 
+.zprefixddcb
+{
+jsr zfetch:sta zdisplacement
+jsr zfetch
+
+inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_DDCB_0xxxxxxx,X)
+.b7set:jmp (zop_table_DDCB_1xxxxxxx,X)
+}
+
+.zprefixfdcb
+{
+jsr zfetch:sta zdisplacement
+jsr zfetch
+
+inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_FDCB_0xxxxxxx,X)
+.b7set:jmp (zop_table_FDCB_1xxxxxxx,X)
+}
+
 .zprefixdd
 {
-jsr zfetch:inc zrr
+jsr zfetch;:sta zprefixed_instruction
+
+inc zrr
 
 asl a:tax:bcs b7set
 .b7reset:jmp (zop_table_DD_0xxxxxxx,X)
@@ -667,3 +764,15 @@ asl a:tax:bcs b7set
 .b7reset:jmp (zop_table_FD_0xxxxxxx,X)
 .b7set:jmp (zop_table_DD_1xxxxxxx,X)
 }
+
+.zprefixcb
+{
+jsr zfetch:inc zrr
+
+asl a:tax:bcs b7set
+.b7reset:jmp (zop_table_CB_0xxxxxxx,X)
+.b7set:jmp (zop_table_CB_1xxxxxxx,X)
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

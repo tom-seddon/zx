@@ -70,3 +70,5 @@
 
 ; Temporary storage for (IX+d).
 .zindex__tmp skip 2
+
+.zdisplacement skip 1

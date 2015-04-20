@@ -64,52 +64,50 @@ class ManualInstr:
 # On entry to instruction-specific code: byte in A.
 def x_read_ind(r,lines):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zfetch:clc:adc zr%s:tax"%r.l,
-                "ldy zr%s:{bcc nc:iny:.nc}"%r.h,
-                "LOAD_XY"]+
+        return (["jsr zget_%s_displaced"%r.full,
+                "jsr load_xy"]+
                 lines)
     else:
-        return ["ldx zr%s:ldy zr%s:LOAD_XY"%(r.l,r.h)]
+        return ["ldx zr%s:ldy zr%s:jsr load_xy"%(r.l,r.h)]
 
 def x_write_ind_imm(r):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zfetch:clc:adc zr%s:sta zindex__tmp+0"%r.l,
-                 "ldy zr%s:{bcc nc:iny:.nc}:sty zindex__tmp+1"%r.h,
-                 "jsr zfetch",
-                 "ldx zindex__tmp+0:ldy zindex__tmp+1:STORE_XY"])
+        return (["jsr zget_%s_displaced"%r.full,
+                 "jsr zfetch",  # imm
+                 "ldx zindex__tmp+0:ldy zindex__tmp+1:jsr store_xy"])
     else:
-        return ["jsr zfetch",
-                "ldx zr%s:ldy zr%s:STORE_XY"%(r.l,r.h)]
+        return ["jsr zfetch",   # imm
+                "ldx zr%s:ldy zr%s:jsr store_xy"%(r.l,r.h)]
     
 # On entry to instruction-specific code: address in YX, that must be
 # preserved. (Use of zindex__tmp+0 and zindex__tmp+1 is fine.) Put
 # byte to write in A.
+#
+# (this could be done more optimally... but it makes stuff like ld
+# (hl),l simpler if the addresses is loaded first.)
 def x_write_ind(r,lines):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zfetch:clc:adc zr%s:tax"%r.l,
-                 "ldy zr%s:{bcc nc:iny:.nc}"%r.h]+
+        return (["jsr zget_%s_displaced"%r.full]+
                 lines+
-                ["STORE_XY"])
+                ["jsr store_xy"])
     else:
-        # This could be done more cunningly...
         return (["ldx zr%s:ldy zr%s"%(r.l,r.h)]+
                 lines+
-                ["STORE_XY"])
+                ["jsr store_xy"])
     
 # On entry to instruction-specific code: bte in A, and address in YX,
 # that must be preserved. (Use of zindex__tmp+0 and zindex__tmp+1 is
 # fine.) Put byte to write in A.
 def x_rmw_ind(r,lines):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zfetch:clc:adc zr%s:tax"%r.l,
-                 "ldy zr%s:bcc nc:iny:.nc"%r.h,
-                 "LOAD_XY"]+
+        return (["jsr zget_%s_displaced"%r.full,
+                 "jsr load_xy"]+
                 lines+
-                ["STORE_XY"])
+                ["jsr store_xy"])
     else:
-        return (["ldx zr%s:ldy zr%s:LOAD_XY"%(r.l,r.h)]+
+        return (["ldx zr%s:ldy zr%s:jsr load_xy"%(r.l,r.h)]+
                 lines+
-                ["STORE_XY"])
+                ["jsr store_xy"])
 
 def fixup_ir_r(ir,r):
     if ir is reg_ix or ir is reg_iy:
@@ -131,7 +129,7 @@ def ld_r8_r8(d,s):
 def ld_r8_imm(d):
     if d is None: return None
     return Instr("ld %s,n"%d,
-                 ["jsr zfetch:sta zr%s"%d],
+                 ["jsr zfetch:sta zr%s"%d], # imm
                  [4,3])
 
 def ld_r8_ind(d,ir):
@@ -152,14 +150,14 @@ def ld_ind_r8(ir,s):
 def ld_r8_mem(d):
     if d is None: return None
     return Instr("ld %s,(nn)"%d,
-                 ["jsr zfetcha:LOAD_XY",
+                 ["jsr zfetcha:jsr load_xy",
                   "sta zr%s"%d],
                  [4,3,3,3])
 
 def ld_mem_r8(s):
     if s is None: return None
     return Instr("ld (nn),%s"%s,
-                 ["jsr zfetcha:lda zr%s:STORE_XY"%s],
+                 ["jsr zfetcha:lda zr%s:jsr store_xy"%s],
                  [4,3,3,3])
 
 def ld_ind_imm8(r):
@@ -179,16 +177,16 @@ def ld_r16_mem(r):
     if r is None: return None
     return Instr("ld %s,(nn)"%(r.full),
                  ["jsr zfetcha",
-                  "LOAD_XY_POSTINC:sta zr%s"%r.l,
-                  "LOAD_XY_POSTINC:sta zr%s"%r.h],
+                  "jsr load_xy_postinc:sta zr%s"%r.l,
+                  "jsr load_xy_postinc:sta zr%s"%r.h],
                  [4,3,3,3,3])
 
 def ld_mem_r16(r):
     if r is None: return None
     return Instr("ld (nn),%s"%(r.full),
                  ["jsr zfetcha",
-                  "lda zr%s:STORE_XY_POSTINC"%r.l,
-                  "lda zr%s:STORE_XY"%r.h],
+                  "lda zr%s:jsr store_xy_postinc"%r.l,
+                  "lda zr%s:jsr store_xy"%r.h],
                  [4,3,3,3,3])
 
 def ld_r16_r16(d,s):
@@ -206,8 +204,8 @@ def push(r):
     lines=[]
     if r is reg_af: lines=["jsr zpack_flags"]
     lines+=["ldx zrspl:ldy zrsph",
-            "lda zr%s:STORE_XY_PREDEC"%r.h,
-            "lda zr%s:STORE_XY_PREDEC"%r.l,
+            "lda zr%s:jsr store_xy_predec"%r.h,
+            "lda zr%s:jsr store_xy_predec"%r.l,
             "stx zrspl:sty zrsph"]
     
     return Instr("push %s"%(r.full),
@@ -217,8 +215,8 @@ def push(r):
 def pop_r16(r):
     if r is None: return None
     lines=["ldx zrspl:ldy zrsph",
-           "LOAD_XY_POSTINC:sta zr%s"%r.l,
-           "LOAD_XY_POSTINC:sta zr%s"%r.h,
+           "jsr load_xy_postinc:sta zr%s"%r.l,
+           "jsr load_xy_postinc:sta zr%s"%r.h,
            "stx zrspl:sty zrsph"]
     if r is reg_af: lines+=["jsr zunpack_flags"]
     
@@ -246,11 +244,11 @@ def ex_af_af():
 def ex_sp(r):
     return Instr("ex (sp),%s"%r.full,
                  ["ldx zrspl:ldy zrsph",
-                  "LOAD_XY_POSTINC:sta zop__tmp", # low
-                  "LOAD_XY:pha",                  # high
-                  "lda zr%s:STORE_XY"%r.h,        # high
+                  "jsr load_xy_postinc:sta zop__tmp", # low
+                  "jsr load_xy:pha",                  # high
+                  "lda zr%s:jsr store_xy"%r.h,        # high
                   "pla:sta zr%s"%r.h,             # high
-                  "lda zr%s:STORE_XY_PREDEC"%r.l, # low
+                  "lda zr%s:jsr store_xy_predec"%r.l, # low
                   "lda zop__tmp:sta zr%s"%r.l,    # low
                  ],
                  [4,3,4,3,5])
@@ -262,7 +260,7 @@ def exx():
 
 def alu_imm(mnem):
     return Instr("%s a,n"%mnem,
-                 ["jsr zfetch:jmp zop_%s"%mnem],
+                 ["jsr zfetch:jmp zop_%s"%mnem], # imm
                  [4])
 
 def alu_r8(mnem,r):
@@ -277,45 +275,32 @@ def alu_ind(mnem,r):
                  x_read_ind(r,["jmp zop_%s"%mnem]),
                  [4,3])
 
-
-def rot_r8(mnem,r):
-    if r is None: return None
-    return Instr("%s %s"%(mnem,r),
-                 ["lda zr%s:jsr zdo_%s:sta zr%s"%(r,mnem,r)],
-                 [4,4])
-
-def rot_ind8(mnem,ir):
-    if ir is None: return None
-    return Instr("%s (%s)"%(mnem,ir.indfull),
-                 x_rmw_ind(ir,["jsr zdo_%s"%mnem]),
-                 [4,4,4,3])
-
 def inc_r8(r):
     if r is None: return None
     return Instr("inc %s"%r,
-                 ["lda zr%s:DO_ZINC zr%s"%(r,r)],
+                 ["lda zr%s:jsr zdo_inc:sta zr%s"%(r,r)],
                  [4])
 
 def inc_ind8(r):
     if r is None: return None
     return Instr("inc (%s)"%r.indfull,
-                 x_rmw_ind(r,["sty zindex__tmp+1",
-                              "DO_ZINC zop__tmp:lda zop__tmp",
-                              "ldy zindex__tmp+1"]),
+                 x_rmw_ind(r,["stx zindex__tmp+0",
+                              "jsr zdo_inc",
+                              "ldx zindex__tmp+0"]),
                  [4,4,3])
 
 def dec_r8(r):
     if r is None: return None
     return Instr("dec %s"%r,
-                 ["lda zr%s:DO_ZDEC zr%s"%(r,r)],
+                 ["lda zr%s:jsr zdo_dec:sta zr%s"%(r,r)],
                  [4])
 
 def dec_ind8(r):
     if r is None: return None
     return Instr("dec (%s)"%r.indfull,
-                 x_rmw_ind(r,["sty zindex__tmp+1",
-                              "DO_ZDEC zop__tmp:lda zop__tmp",
-                              "ldy zindex__tmp+1"]),
+                 x_rmw_ind(r,["stx zindex__tmp+0",
+                              "jsr zdo_dec",
+                              "ldy zindex__tmp+0"]),
                  [4,4,3])
 
 def inc_r16(r):
@@ -359,8 +344,8 @@ def jpcc(cond):
 def ret():
     return Instr("ret",
                  ["ldx zrspl:ldy zrsph",
-                  "LOAD_XY_POSTINC:sta zrpcl",
-                  "LOAD_XY_POSTINC:sta zrpch",
+                  "jsr load_xy_postinc:sta zrpcl",
+                  "jsr load_xy_postinc:sta zrpch",
                  "stx zrspl:sty zrsph"],
                  [4,3,3])
 
@@ -368,8 +353,8 @@ def retcc(cond):
     return Instr("ret %s"%cond_names[cond],
                  [conds[cond],
                   "ldx zrspl:ldy zrsph",
-                  "LOAD_XY_POSTINC:sta zrpcl",
-                  "LOAD_XY_POSTINC:sta zrpch",
+                  "jsr load_xy_postinc:sta zrpcl",
+                  "jsr load_xy_postinc:sta zrpch",
                   "stx zrspl:sty zrsph",
                   "ZTSTATES(3):ZTSTATES(3)",
                   ".no"],
@@ -385,7 +370,7 @@ def callcc(cond):
     return Instr("call %s,nn"%cond_names[cond],
                  ["jsr zfetch2:sta zop__tmp",
                   conds[cond],
-                  "ZPUSH_PC",
+                  "jsr zpush_pc",
                   "lda zfetch2_lsb:sta zrpcl",
                   "lda zop__tmp:sta zrpch",
                   "ZTSTATES(4):ZTSTATES(3)",
@@ -395,12 +380,75 @@ def callcc(cond):
 def call():
     return Instr("call nn",
                  ["jsr zfetch2:sta zop__tmp",
-                  "ZPUSH_PC",
+                  "jsr zpush_pc",
                   "lda zfetch2_lsb:sta zrpcl",
                   "lda zop__tmp:sta zrpch"],
                  [4,3,4,3,3])
 
+def rot_r8(mnem,r):
+    if r is None: return None
+    return Instr("%s %s"%(mnem,r),
+                 ["lda zr%s:jsr zdo_%s:sta zr%s"%(r,mnem,r)],
+                 [4,4])
 
+def rot_ind(mnem,ir,dest_reg=None):
+    if ir is None: return None
+    
+    dis="%s (%s)"%(mnem,ir.indfull)
+    lines=["jsr zdo_%s"%mnem]
+    
+    if dest_reg is not None:
+        # dd/fd prefix nonsens
+        dis="ld %s,%s"%(dest_reg,dis)
+        lines+=["sta zr%s"%dest_reg] 
+    
+    return Instr(dis,
+                 x_rmw_ind(ir,lines),
+                 [4,4,4,3])
+
+def bit_r8(bitn,r):
+    return Instr("bit %d,%s"%(bitn,r),
+                 ["lda zr%s:and #$%02X:jsr zdo_bit"%(r,1<<bitn)],
+                 [4,4])
+
+def bit_ind(bitn,ir):
+    return Instr("bit %d,(%s)"%(bitn,ir.indfull),
+                 x_read_ind(ir,["and #$%02X:jsr zdo_bit"%(1<<bitn)]),
+                 [4,4,4])
+
+def set_r8(bitn,r):
+    return Instr("set %d,%s"%(bitn,r),
+                 ["lda zr%s:ora #$%02X:sta zr%s"%(r,1<<bitn,r)],
+                 [4,4])
+
+def set_ind(bitn,ir,dest_reg=None):
+    dis="set %d,(%s)"%(bitn,ir.indfull)
+    lines=["ora #$%02X"%(1<<bitn)]
+    if dest_reg is not None:
+        # dd/fd prefix nonsense
+        dis="ld %s,%s"%(dest_reg,dis)
+        lines+=["sta zr%s"%dest_reg] 
+    
+    return Instr(dis,
+                 x_rmw_ind(ir,lines),
+                 [4,4,4,3])
+
+def res_r8(bitn,r):
+    return Instr("res %d,%s"%(bitn,r),
+                 ["lda zr%s:and #$%02X:sta zr%s"%(r,(~(1<<bitn))&255,r)],
+                 [4,4])
+
+def res_ind(bitn,ir,dest_reg=None):
+    dis="res %d,(%s)"%(bitn,ir.indfull)
+    lines=["and #$%02X"%((~(1<<bitn))&255)]
+    if dest_reg is not None:
+        # dd/fd prefix nonsense
+        dis="ld %s,%s"%(dest_reg,dis)
+        lines+=["sta zr%s"%dest_reg] 
+    
+    return Instr(dis,
+                 x_rmw_ind(ir,lines),
+                 [4,4,4,3])
 
 # def family(prefix,opcode,d1_val,mnem):
 #     d0=(opcode>>6)&3
@@ -451,7 +499,7 @@ def get_unprefixed_opcodes(prefix):
                 elif by==2:
                     # djnz d
                     instr=Instr("djnz d",
-                                ["jsr zfetch",
+                                ["jsr zfetch", # disp
                                  "dec zrb:beq nb",
                                  "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc",
                                  "ZTSTATES(5)",
@@ -460,13 +508,13 @@ def get_unprefixed_opcodes(prefix):
                 elif by==3:
                     # jr d
                     instr=Instr("jr d",
-                                ["jsr zfetch",
+                                ["jsr zfetch", # disp
                                  "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc"],
                                 [4,3,5])
                 elif by>=4:
                     # jr cc[y-4],d
                     instr=Instr("jr %s,d"%(["nz","z","nc","c"][by-4]),
-                                ["jsr zfetch",
+                                ["jsr zfetch", # disp
                                  conds[by-4],
                                  "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc",
                                  "ZTSTATES(5)",
@@ -550,7 +598,10 @@ def get_unprefixed_opcodes(prefix):
                 instr=jpcc(by)
             elif bz==3:
                 if by==0: instr=jp()
-                elif by==1: pass    # CB
+                elif by==1:
+                    if prefix==0xdd: instr=ManualInstr("zprefixddcb","prefix_ddcb")
+                    elif prefix==0xfd: instr=ManualInstr("zprefixfdcb","prefix_fdcb")
+                    elif prefix is None: instr=ManualInstr("zprefixcb","prefix_cb")
                 elif by==4: instr=ex_sp(regs_16bit[prefix][2])
                 elif by==5: instr=ex_de_hl()
                 elif by==6: instr=ManualInstr("zop_di","di")
@@ -579,7 +630,6 @@ def get_unprefixed_opcodes(prefix):
 
 rot_mnemonics=["rlc","rrc","rl","rr","sla","sra","sll","srl"]
 
-
 def get_cb_opcodes(prefix):
     instrs=[]
 
@@ -591,14 +641,23 @@ def get_cb_opcodes(prefix):
 
         if bx==0:
             mnem=rot_mnemonics[by]
-            if bz==6: instr=rot_ind8(mnem,regs_16bit[prefix][2])
-            else: instr=rot_r8(mnem,regs_8bit[prefix][bz])
+            if bz==6: instr=rot_ind(mnem,regs_16bit[prefix][2])
+            else:
+                if prefix is None: instr=rot_r8(mnem,regs_8bit[prefix][bz])
+                else: instr=rot_ind(mnem,regs_16bit[prefix][2],regs_8bit[None][bz])
         elif bx==1:
-            pass
+            if bz==6: instr=bit_ind(by,regs_16bit[prefix][2])
+            else: instr=bit_r8(by,regs_8bit[prefix][bz])
         elif bx==2:
-            pass
+            if bz==6: instr=res_ind(by,regs_16bit[prefix][2])
+            else:
+                if prefix is None: instr=res_r8(by,regs_8bit[prefix][bz])
+                else: instr=res_ind(by,regs_16bit[prefix][2],regs_8bit[None][bz])
         elif bx==3:
-            pass
+            if bz==6: instr=set_ind(by,regs_16bit[prefix][2])
+            else:
+                if prefix is None: instr=set_r8(by,regs_8bit[prefix][bz])
+                else: instr=set_ind(by,regs_16bit[prefix][2],regs_8bit[None][bz])
 
         instrs[opcode]=instr
 
@@ -615,23 +674,24 @@ instrs_cb=get_cb_opcodes(None)
 instrs_ddcb=get_cb_opcodes(0xdd)
 instrs_fdcb=get_cb_opcodes(0xfd)
 
-opcode_by_dis={}
-for i,x in enumerate(instrs_un):
-    if x is not None:
-        assert x.dis not in opcode_by_dis,(hex(i),hex(opcode_by_dis[x.dis]),x.dis)
-        opcode_by_dis[x.dis]=i
+def remove_shared(main_list,prefixed_lists):
+    opcode_by_dis={}
+    for i,x in enumerate(main_list):
+        if x is not None:
+            assert x.dis not in opcode_by_dis,(hex(i),hex(opcode_by_dis[x.dis]),x.dis)
+            opcode_by_dis[x.dis]=i
 
-# Any DD or FD prefix instruction that's an exact match (going by
-# disassembly) for one in the unprefixed table can be removed.
-def remove_shared(xs,by_dis):
-    for i,x in enumerate(xs):
-        if xs[i] is not None:
-            if xs[i].dis in by_dis:
-                xs[i]=None
+    # Any prefixed opcode that's an exact match (going by disassembly)
+    # for one in the main list can be removed.
+    for prefixed_list in prefixed_lists:
+        for i,x in enumerate(prefixed_list):
+            if x is not None:
+                if x.dis in opcode_by_dis:
+                    prefixed_list[i]=None
+
+remove_shared(instrs_un,[instrs_dd,instrs_fd])
+remove_shared(instrs_cb,[instrs_ddcb,instrs_fdcb])
     
-remove_shared(instrs_dd,opcode_by_dis)
-remove_shared(instrs_fd,opcode_by_dis)
-
 def get_max_dis_width(xs): return max([len(x.dis) for x in xs if x is not None])
 
 unw=get_max_dis_width(instrs_un)
@@ -708,8 +768,8 @@ generate_routines(instrs_un,None,None)
 generate_routines(instrs_dd,instrs_un,0xdd)
 generate_routines(instrs_fd,instrs_un,0xfd)
 generate_routines(instrs_cb,None,0xcb)
-generate_routines(instrs_ddcb,None,0xddcb)
-generate_routines(instrs_fdcb,None,0xfdcb)
+generate_routines(instrs_ddcb,instrs_cb,0xddcb)
+generate_routines(instrs_fdcb,instrs_cb,0xfdcb)
     
 ##########################################################################
 ##########################################################################
