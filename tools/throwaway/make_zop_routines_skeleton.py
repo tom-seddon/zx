@@ -260,19 +260,19 @@ def exx():
 
 def alu_imm(mnem):
     return Instr("%s a,n"%mnem,
-                 ["jsr zfetch:jmp zop_%s"%mnem], # imm
+                 ["jsr zfetch:jsr zdo_%s"%mnem], # imm
                  [4])
 
 def alu_r8(mnem,r):
     if r is None: return None
     return Instr("%s a,%s"%(mnem,r),
-                 ["lda zr%s:jmp zop_%s"%(r,mnem)],
+                 ["lda zr%s:jsr zdo_%s"%(r,mnem)],
                  [4])
 
 def alu_ind(mnem,r):
     if r is None: return None
     return Instr("%s a,(%s)"%(mnem,r.indfull),
-                 x_read_ind(r,["jmp zop_%s"%mnem]),
+                 x_read_ind(r,["jsr zdo_%s"%mnem]),
                  [4,3])
 
 def inc_r8(r):
@@ -318,13 +318,13 @@ def dec_r16(r):
 def add_r16_r16(d,s):
     if d is None or s is None: return None
     return Instr("add %s,%s"%(d.full,s.full),
-                 ["DO_ZADD16_OR_ADC16 zr%s,zr%s,zr%s,zr%s,1"%(d.l,d.h,s.l,s.h)],
+                 ["ldx #zr%s:ldy #zr%s:jsr do_zadd16"%(d.l,s.l)],
                  [4,4,3])
 
-def adc_r16_16(d,s):
+def adc_hl_16(r):
     if d is None or s is None: return None
-    return Instr("adc %s,%s"%(d.full,s.full),
-                 ["DO_ZADD16_OR_ADC16 zr%s,zr%s,zr%s,zr%s,1"%(d.l,d.h,s.l,s.h)],
+    return Instr("adc hl,%s"%(r.full),
+                 ["ldx #zr%s:jsr do_zadc16_hl"%(r.l)],
                  [4,4,4,3])
 
 def jp():

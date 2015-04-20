@@ -258,6 +258,126 @@ cmp #$7f:beq setv
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; MACRO DO_ZADD16_OR_ADC16 dl,dh,sl,sh,is_adc
+; IF is_adc:asl zfcval:ELSE:clc:ENDIF
+
+; lda dl:adc sl:sta dl
+
+; IF dh==sh
+; lda dh:tax:adc sh:sta dh
+; IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
+; txa:eor sh:eor dh:sta zfhval	; Set/reset H
+; ELSE
+
+; lda sh:sta zop__tmp
+; lda dh:tax:adc sh:sta dh
+; IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
+; txa:eor zop__tmp:eor dh:sta zfhval ; Set/reset H
+
+; ENDIF
+
+; stz zfnval			; Reset N
+; ror zfcval			; Set/reset C
+; ENDMACRO
+
+; X=ZP address of LSB of dest; Y=ZP address of LSB of source
+.do_zadd16
+{
+clc
+lda $00,X			; A = LhsL
+adc $0000,Y			; A = ResL
+sta $00,X			; A = ResL
+
+lda $0001,Y			; A = RhsH
+sta zop__tmp			; zop__tmp = RhsH
+adc $01,X			; A = ResH
+tay				; Y = ResH
+eor $01,X			; A = ResH ^ LhsH
+eor zop__tmp			; A = RenH ^ LhsH ^ RhsH
+sta zfhval			; H from result
+sty $01,X			; store result
+sty zf53val			; 5/3 from result
+stz zfnval			; N=0
+ror zfcval			; C from result
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; adc hl,r
+
+; X=ZP address of LSB of source
+
+.do_zadc16
+{
+
+; HL = HL + Rhs
+
+asl zfcval
+lda zrl				; A = L
+adc $00,X			; A = ResL
+sta zrl				; A = ResL
+; 
+lda zrh				; A = H
+adc $01,X			; A = ResH
+tay				; Y = ResH
+eor $01,X			; A = ResH ^ RhsH
+eor zrh				; A = ResH ^ RhsH ^ LhsH
+sta zfhval			; H from result
+sty zrh				; store result
+
+sty zf53val			; 5/3 from result
+stz zfnval			; N=0
+ror zfcval			; C from result
+
+tya:bmi storesz:ora zrl:beq storesz:lda #1:.storesz:sta zfszval ; S/Z from result
+
+bvs setp			; P from result
+.resetp:lda #ZP0_VALUE:sta zfpval:rts 
+.setp:lda #ZP1_VALUE:sta zfpval:rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; sbc hl,r
+
+; X=ZP address of LSB of source
+
+.do_sbc16
+{
+
+; HL = HL - Rhs - C
+
+lda zfcval:eor #$80:asl a
+
+lda zrl
+sbc $00,X
+sta zrl
+
+lda zrh				; A = H
+sbc $01,X			; A = ResH
+tay				; X = ResH
+eor $01,X			; A = ResH ^ RhsH
+eor zrh				; A = ResH ^ RhsH ^ LhsH
+sta zfhval			; H from result
+sty zrh				; store result
+sty zf53val			; 5/3 from result
+lda #$80:sta zfnval		; N=1
+
+ror a:eor #$80:sta zfcval	; C from result
+
+tya:bmi storesz:ora zrl:beq storesz:lda #1:.storesz:sta zfszval ; S/Z from result
+
+bvs setp			; P from result
+.resetp:lda #ZP0_VALUE:sta zfpval:rts 
+.setp:lda #ZP1_VALUE:sta zfpval:rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 MACRO DO_ZADD
 sta zop__tmp			    ; zop__tmp=operand B
 lda zra:tax:adc zop__tmp:sta zra    ; zra=result
@@ -269,44 +389,19 @@ stz zfnval			    ; Reset N
 ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
 ENDMACRO
 
-.zop_adc
+.zdo_adc
 {
 asl zfcval
 DO_ZADD
-ZNEXT 0
+rts
 }
 
-.zop_add
+.zdo_add
 {
 clc
 DO_ZADD
-ZNEXT 0
+rts
 }
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-MACRO DO_ZADD16_OR_ADC16 dl,dh,sl,sh,is_adc
-IF is_adc:asl zfcval:ELSE:clc:ENDIF
-
-lda dl:adc sl:sta dl
-
-IF dh==sh
-lda dh:tax:adc sh:sta dh
-IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
-txa:eor sh:eor dh:sta zfhval	; Set/reset H
-ELSE
-lda sh:sta zop__tmp
-lda dh:tax:adc sh:sta dh
-IF is_adc:bmi store:ora dl:beq store:lda #1:.store:sta zfszval:ENDIF
-txa:eor zop__tmp:eor dh:sta zfhval ; Set/reset H
-ENDIF
-
-stz zfnval			; Reset N
-ror zfcval			; Set/reset C
-ENDMACRO
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -319,43 +414,43 @@ sta zfszval			; Set/reset S+Z
  ; CP sets bits 5+3 from the operand.
 IF is_sub:sta zf53val:ELSE:ldy zop__tmp:sty zf53val:ENDIF
 
-eor #$80:ror a					    ; Set/reset C
+ror a:eor #$80:sta zfcval			    ; Set/reset C
 txa:eor zop__tmp:eor zra:sta zfhval		    ; Set/reset H
 lda #128:sta zfnval				    ; Set N
 ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
 ENDMACRO
 
-.zop_sub
+.zdo_sub
 {
 sec
 sta zop__tmp			    ; zsub__tmp=operand B
 DO_ZSUB_OR_CP 1
-ZNEXT 0
+rts
 }
 
-.zop_sbc
+.zdo_sbc
 {
 sta zop__tmp
 lda zfcval:eor #$80:asl a
 DO_ZSUB_OR_CP 1
-ZNEXT 0
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zop_cp
+.zdo_cp
 {
 sec
 sta zop__tmp
 DO_ZSUB_OR_CP 0
-ZNEXT 0
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zop_and
+.zdo_and
 {
 ; SZ5H3PNC
 ; SZ513P00
@@ -367,7 +462,7 @@ lda #ZH_MASK:sta zfhval		; Set H
 stz zfnval			; Reset N
 stz zfhval			; Reset H
 stz zfcval			; Reset C
-ZNEXT 0
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -375,7 +470,7 @@ ZNEXT 0
 
 ; SZ5H3PNC
 ; SZ503P00
-.zop_or
+.zdo_or
 {
 ora zra:sta zra
 sta zf53val			; Set bits 5+3
@@ -385,13 +480,13 @@ stz zfhval			; Reset H
 stz zfnval			; Reset N
 stz zfhval			; Reset H
 stz zfcval			; Reset C
-ZNEXT 0
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.zop_xor
+.zdo_xor
 {
 eor zra:sta zra
 sta zf53val			; Set bits 5+3
@@ -401,7 +496,7 @@ stz zfhval			; Reset H
 stz zfnval			; Reset N
 stz zfhval			; Reset H
 stz zfcval			; Reset C
-ZNEXT 0
+rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
