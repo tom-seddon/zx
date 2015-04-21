@@ -342,6 +342,9 @@ int main()
 
     g_log_file=fopen("z80_log.dat","wb");
     atexit(&CloseLogFile);
+
+    if(g_log_file)
+	fputc(1,g_log_file);	// version
     
     start_color();
     noecho();
@@ -352,6 +355,7 @@ int main()
     UpdateWindows();
 
     Z80 z80_state;
+    memset(&z80_state,0,sizeof z80_state);
     ResetZ80(&z80_state);
 
     int num_redraws=0;

@@ -348,6 +348,8 @@ lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
 lda #$80:sta zquit
 
 lda ta_z80_log_file:sta log_state_gbpb_block
+; Write log version
+tay:lda #1:jsr osbput
 
 FOR i,0,3:stz insctr+i:NEXT
 
