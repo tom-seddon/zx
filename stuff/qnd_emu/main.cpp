@@ -126,6 +126,7 @@ static void UpdateWindows()
     if(w<128||h<128)
     {
 	fprintf(stderr,"FATAL: screen must be at least 128x128.\n");
+	fprintf(stderr,"FATAL: screen must be at least 128x110.\n");
 	exit(1);
     }
 
