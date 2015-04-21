@@ -123,9 +123,8 @@ static void UpdateWindows()
     int w,h;
     getmaxyx(stdscr,h,w);
 
-    if(w<128||h<128)
+    if(w<128||h<110)
     {
-	fprintf(stderr,"FATAL: screen must be at least 128x128.\n");
 	fprintf(stderr,"FATAL: screen must be at least 128x110.\n");
 	exit(1);
     }
