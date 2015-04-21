@@ -330,6 +330,16 @@ rts
 ; jsr loadprog
 ; ;lda #'B':jsr save_swram
 
+; Z80 reset fixups
+
+; FMS-Z80 starts out with F=0. F=0 already (thanks to zx_load) - but
+; pval=0 and szval=0, so the next zpack_flags will set F to $44 (P
+; set, Z set). So, call zunpack_flags to fix that.
+jsr zunpack_flags
+
+; FMS-Z80 does this, for reasons unknown.
+lda #$F0:sta zrsph
+
 lda ta_z80_log_file:jsr printhex:jsr osnewl
 
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
@@ -356,8 +366,6 @@ lda zrpcl:cmp #$0a:bne cont
 lda zrpch:cmp #$12:beq finish
 .cont
 
-jsr zrun
-
 ; Print some crap and save some log data.
 {
 lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
@@ -372,6 +380,8 @@ lda #2				; put bytes at PTR#
 ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
 jsr osgbpb:bcs bad_gbpb
 }
+
+jsr zrun
 
 jmp zrun_test_loop
 ;lda #'C':jsr save_swram
