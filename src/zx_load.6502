@@ -1,0 +1,208 @@
+cpu 1
+
+include "shared.k.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; ZX loader
+;
+; 1. Checks program is running on an appropriate system
+;
+; 2. Clears 6502 memory (zero page, shadow RAM, sideways RAM, user
+; RAM)
+;
+; 3. Clears Z80 memory
+;
+; 4. Loads Spectrum ROM into Z80 memory
+;
+; 5. Prepares screen for emulator
+;
+; 6. Runs main program
+; 
+; This is intended just to keep a few bits of junk out of the program
+; proper...
+;
+; (Strictly speaking, the 6502 memory doesn't need clearing. But it
+; makes memory dumps easier to read.)
+; 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org $80
+guard $90
+
+.strptr skip 2
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org $e00
+guard $3000
+
+.code_begin
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.start
+{
+jsr check_system
+
+jsr printstr:equb 22,7,255
+
+jsr printstr:equb "Initialising memory...",255
+jsr clear_ram
+
+jsr printstr:equs 13,10,"Loading Spectrum ROM...",255
+ldx #<load_rom_cmd:ldy #>load_rom_cmd:jsr oscli
+
+jsr printstr:equs 13,10,"Starting Spectrum...",255
+ldx #<cmd:ldy #>cmd:jmp oscli
+
+.load_rom_cmd:equs "SRLOAD R.48K 8000 4",13
+.cmd:equs "RUN ZX2",13
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.clear_ram
+{
+sei
+lda $f4:pha
+lda $fe34:pha
+
+; clear $00-$90
+ldx #$00:.zloop:stz $00,X:inx:bpl zloop
+
+; clear $8000-$C000
+; lda #4:jsr clear_rom ; Spectrum ROM will go here.
+lda #5:jsr clear_rom
+lda #6:jsr clear_rom
+lda #7:jsr clear_rom
+
+; clear main RAM
+lda $fe34:and #NOT(acccon_x)AND255:sta $fe34:ldy #>code_end:ldx #$7c->code_end:lda #0:jsr fill_pages
+
+; clear shadow RAM
+lda $fe34:ora #acccon_x:sta $fe34:ldy #$30:ldx #$50:jsr fill_pages
+
+pla:sta $fe34
+pla:sta $f4:sta $fe30
+cli
+
+rts
+
+.clear_rom
+{
+sta $fe30
+ldy #$80:ldx #$40:lda #$00:jmp fill_pages
+}
+
+.fill_pages
+{
+sty write+2:ldy #0
+.loop:.write:sta FIX_xx00,Y
+iny:bne loop
+inc write+2:dex:bne loop
+rts
+}
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.check_system
+{
+.check_model
+{
+; NAUG p427 (pdf p217)
+lda #0:ldx #1:jsr osbyte
+cpx #3:beq good			; Master 128
+cpx #4:beq good			; Master ET
+cpx #5:beq good			; Master Compact
+brk:equb 255:equs "Master series required":brk
+.good
+}
+
+.check_tube
+{
+; NAUG p257 (pdf p132)
+lda #$82:jsr osbyte
+cpx #$ff:bne bad
+cpy #$ff:beq good
+.bad:brk:equb 255:equs "Must run in I/O processor":brk
+.good
+}
+
+.check_swram
+{
+; NAUG p160 (pdf p84)
+lda #$44:jsr osbyte
+txa:and #$0f:cmp #$0f:beq good
+brk:equb 255:equs "4 banks of sideways RAM required":brk
+.good
+}
+
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.incz16
+{
+inc $0,x:bne nc:inc $1,x:.nc
+rts
+}
+
+.get_strptr
+{
+plx:ply				; grab return address
+
+clc
+pla:adc #1:sta strptr+0
+pla:adc #0:sta strptr+1
+
+phy:phx				; restore return address
+rts
+}
+
+.printstrnl
+{
+jsr get_strptr
+jsr doprintstr
+jsr osnewl
+jmp (strptr)
+}
+
+.printstr
+{
+jsr get_strptr
+jsr doprintstr
+jmp (strptr)
+}
+
+.doprintstr
+{
+.loop
+lda (strptr):ldx #strptr:jsr incz16
+cmp #255:beq done
+jsr oswrch:bra loop
+
+.done
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+align 256
+
+.code_end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+SAVE "ZX",code_begin,code_end,start

@@ -11,6 +11,16 @@ FIX_xxxx=$cccc
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 romsel=$FE30
+acccon=$FE34
+
+acccon_irr=128			; Magic IRQ - 1=IRQ; 0=no IRQ
+acccon_tst=64			; Test mode - 1=test mode; 0=normal
+acccon_ifj=32			; &FCxx, &FDxx - 1=cartridge; 0=1MHz bus
+acccon_itu=16			; Tube - 1=internal; 0=external
+acccon_y=8			; RAM at &C000 - 1=yes; 0=no
+acccon_x=4			; Shadow RAM paged in - 1=yes; 0=no
+acccon_e=2			; B+-style shadow RAM mode - 1=yes, 0=no
+acccon_d=1			; Display RAM - 1=shadow 0=main
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

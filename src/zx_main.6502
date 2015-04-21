@@ -7,7 +7,7 @@ include "z80.k.6502"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 org $00
-guard $90
+guard $80
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -41,92 +41,92 @@ include "z80.c.6502"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.clear
-{
-lda $f4:pha
+; .clear
+; {
+; lda $f4:pha
 
-sei
+; sei
 
-lda #4:jsr clear_rom
-lda #5:jsr clear_rom
-lda #6:jsr clear_rom
-lda #7:jsr clear_rom
+; lda #4:jsr clear_rom
+; lda #5:jsr clear_rom
+; lda #6:jsr clear_rom
+; lda #7:jsr clear_rom
 
-ldy #>code_end:ldx #$80->code_end:lda #$ff:jsr fill_pages
+; ldy #>code_end:ldx #$80->code_end:lda #$ff:jsr fill_pages
 
-cli
+; cli
 
-pla:jsr set_rom
+; pla:jsr set_rom
 
-ldx #0:.zclr:stz $0,X:inx:cpx #$90:bne zclr
+; ldx #0:.zclr:stz $0,X:inx:cpx #$90:bne zclr
 
-rts
+; rts
 
-; A=rom number
-.set_rom
-{
-sei
-sta $fe30:sta $f4
-cli
-rts
-}
+; ; A=rom number
+; .set_rom
+; {
+; sei
+; sta $fe30:sta $f4
+; cli
+; rts
+; }
 
-; A=rom number
-.clear_rom
-{
-jsr set_rom:ldy #$80:ldx #$40:jmp fill_pages
-}
+; ; A=rom number
+; .clear_rom
+; {
+; jsr set_rom:ldy #$80:ldx #$40:jmp fill_pages
+; }
 
-; Y=base page X=page count A=value to fill
-.fill_pages
-{
-stz write+1:sty write+2:ldy #0
-.loop:
-.write:sta FIX_xxxx,Y
-iny:bne loop
-inc write+2:dex:bne loop
-rts
-}
-}
+; ; Y=base page X=page count A=value to fill
+; .fill_pages
+; {
+; stz write+1:sty write+2:ldy #0
+; .loop:
+; .write:sta FIX_xxxx,Y
+; iny:bne loop
+; inc write+2:dex:bne loop
+; rts
+; }
+; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.check
-{
+; .check
+; {
 
-.check_system
-{
-; NAUG p427 (pdf p217)
-lda #0:ldx #1:jsr osbyte
-cpx #3:beq good			; Master 128
-cpx #4:beq good			; Master ET
-cpx #5:beq good			; Master Compact
-brk:equb 255:equs "Master series required":brk
-.good
-}
+; .check_system
+; {
+; ; NAUG p427 (pdf p217)
+; lda #0:ldx #1:jsr osbyte
+; cpx #3:beq good			; Master 128
+; cpx #4:beq good			; Master ET
+; cpx #5:beq good			; Master Compact
+; brk:equb 255:equs "Master series required":brk
+; .good
+; }
 
-.check_tube
-{
-; NAUG p257 (pdf p132)
-lda #$82:jsr osbyte
-cpx #$ff:bne bad
-cpy #$ff:beq good
-.bad:brk:equb 255:equs "Must run in I/O processor":brk
-.good
-}
+; .check_tube
+; {
+; ; NAUG p257 (pdf p132)
+; lda #$82:jsr osbyte
+; cpx #$ff:bne bad
+; cpy #$ff:beq good
+; .bad:brk:equb 255:equs "Must run in I/O processor":brk
+; .good
+; }
 
-.check_swram
-{
-; NAUG p160 (pdf p84)
-lda #$44:jsr osbyte
-txa:and #$0f:cmp #$0f:beq good
-brk:equb 255:equs "4 banks of sideways RAM required":brk
-.good
-}
+; .check_swram
+; {
+; ; NAUG p160 (pdf p84)
+; lda #$44:jsr osbyte
+; txa:and #$0f:cmp #$0f:beq good
+; brk:equb 255:equs "4 banks of sideways RAM required":brk
+; .good
+; }
 
-rts
-}
+; rts
+; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -137,12 +137,12 @@ inc $0,x:bne nc:inc $1,x:.nc
 rts
 }
 
-.addz16
-{
-clc
-adc $0,x:sta $0,x:bcc nc:inc $1,x:.nc
-rts
-}
+; .addz16
+; {
+; clc
+; adc $0,x:sta $0,x:bcc nc:inc $1,x:.nc
+; rts
+; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -314,11 +314,11 @@ ldx #<cmd:ldy #>cmd:jmp oscli
 
 .start
 {
-jsr check
-jsr clear
-;lda #'A':jsr save_swram
-jsr loadprog
-;lda #'B':jsr save_swram
+; jsr check
+; jsr clear
+; ;lda #'A':jsr save_swram
+; jsr loadprog
+; ;lda #'B':jsr save_swram
 
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
 lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
@@ -334,25 +334,25 @@ ldx #<basic:ldy #>basic:jmp oscli
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.prog_begin
-incbin "../build/test0.dat"
-.prog_end
-prog_load=0
+; .prog_begin
+; incbin "../build/test0.dat"
+; .prog_end
+; prog_load=0
 
-.loadprog
-{
-lda #<prog_load:sta loadl+1:lda #>prog_load:sta loadh+1
-lda #<prog_begin:sta read+1:lda #>prog_begin:sta read+2
+; .loadprog
+; {
+; lda #<prog_load:sta loadl+1:lda #>prog_load:sta loadh+1
+; lda #<prog_begin:sta read+1:lda #>prog_begin:sta read+2
 
-.loop
-.read:lda FIX_xxxx:
-.loadl:ldx #FIX_xx:.loadh:ldy #FIX_xx:jsr zwrite
-{inc read+1:bne nc:inc read+2:.nc}
-{inc loadl+1:bne nc:inc loadh+1:.nc}
-lda read+1:cmp #<prog_end:bne loop
-lda read+2:cmp #>prog_end:bne loop
-rts
-}
+; .loop
+; .read:lda FIX_xxxx:
+; .loadl:ldx #FIX_xx:.loadh:ldy #FIX_xx:jsr zwrite
+; {inc read+1:bne nc:inc read+2:.nc}
+; {inc loadl+1:bne nc:inc loadh+1:.nc}
+; lda read+1:cmp #<prog_end:bne loop
+; lda read+2:cmp #>prog_end:bne loop
+; rts
+; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -377,4 +377,4 @@ PRINT "Mem Used:",space_used,~space_used
 PRINT "Mem Left:",space_left,~space_left
 PRINT "Top:",~code_end
 
-SAVE "ZX",code_begin,code_end,start
+SAVE "ZX2",code_begin,code_end,start
