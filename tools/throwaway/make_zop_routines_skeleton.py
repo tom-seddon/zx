@@ -319,7 +319,7 @@ def inc_r16(r):
 def dec_r16(r):
     if r is None: return None
     return Instr("dec %s"%r.full,
-                 ["lda zr%s:beq nc:dec zr%s:.nc:dec zr%s"%(r.l,r.h,r.l)],
+                 ["lda zr%s:bne nc:dec zr%s:.nc:dec zr%s"%(r.l,r.h,r.l)],
                  [6])
 
 def add_r16_r16(d,s):
