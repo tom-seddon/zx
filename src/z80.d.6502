@@ -78,7 +78,7 @@ NEXT
 
 .fpvals
 FOR i,0,255
-IF i AND ZP_MASK:EQUB ZP0_VALUE:ELSE:EQUB ZP1_VALUE:ENDIF
+IF i AND ZP_MASK:EQUB ZP1_VALUE:ELSE:EQUB ZP0_VALUE:ENDIF
 NEXT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
