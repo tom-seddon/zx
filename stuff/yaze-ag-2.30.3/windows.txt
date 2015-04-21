@@ -1,0 +1,3 @@
+windows/md5summer.exe*
+windows/metapad.exe*
+windows/metapad.ini*
