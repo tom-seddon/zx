@@ -530,7 +530,7 @@ def get_unprefixed_opcodes(prefix):
                     instr=Instr("djnz d",
                                 ["jsr zfetch", # disp
                                  "dec zrb:beq nb",
-                                 "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc",
+                                 "jsr zdisplace_pc",
                                  "ZTSTATES(5)",
                                  ".nb"],
                                 [5,3])
@@ -538,14 +538,14 @@ def get_unprefixed_opcodes(prefix):
                     # jr d
                     instr=Instr("jr d",
                                 ["jsr zfetch", # disp
-                                 "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc"],
+                                 "jsr zdisplace_pc"],
                                 [4,3,5])
                 elif by>=4:
                     # jr cc[y-4],d
                     instr=Instr("jr %s,d"%(["nz","z","nc","c"][by-4]),
                                 ["jsr zfetch", # disp
                                  conds[by-4],
-                                 "clc:adc zrpcl:sta zrpcl:bcc nc:inc zrpch:.nc",
+                                 "jsr zdisplace_pc",
                                  "ZTSTATES(5)",
                                  ".no"],
                                 [4,3])

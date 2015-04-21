@@ -229,6 +229,22 @@ stx zrspl:sty zrsph
 rts
 }
 
+; Adds A (signed) to PC.
+.zdisplace_pc
+{
+clc:and #255:bmi backwards
+.forwards:adc zrpcl:sta zrpcl:bcc fnc:inc zrpch:.fnc:rts
+.backwards:adc zrpcl:sta zrpcl:bcs bnb:dec zrpch:.bnb:rts
+
+; backwards case is:
+;
+; clc
+; lda l:adc d:sta l    - 2s complement addition
+; lda h:adc #$ff:sta h - add sign-extended high byte
+;
+; so, if C is set after first addition, H will be unaffected...
+}
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
