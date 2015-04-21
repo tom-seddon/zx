@@ -1,0 +1,42 @@
+
+    Last updated: 13-DEC-2004 - Spellchecking.
+
+    This download contains
+
+    zx82.txt  - source file for ZX Spectrum ROM.
+    zx81.txt  - source file for ZX81 ROM.
+    zx80.txt  - source file for ZX80 ROM.
+    ace.txt   - source file for Jupiter Ace ROM.
+    if1_1.txt - source file for original ZX Interface 1.
+    if1_2.txt - source file for improved ZX Interface 1.
+    u3.asm    - extra source file for an unusual ZX Spectrum Disassembler.
+    sc01.txt  - source file for an experimental ZX Spectrum ROM.
+    sc01.rom  - binary 16K ROM for the ZX Spectrum - Network and RS232 enhanced.
+    sg81.rom  - binary 8K ROM for ZX81/TS-1000 - faster mathematics.
+    gw03.txt  - source file for a usable variation of the standard 48K ROM.
+    gw03.rom  - binary 16K ROM file from above source
+
+    These files will assemble unaltered with the Telemark table-driven Assembler
+    e.g.
+
+    TASM -80 -b zx82.txt 
+
+    produces a 16K ROM file zx82.obj which can be renamed as necessary.
+
+    Copy this to zx82.rom and load it into an emulator.
+
+    The files should require very little alteration to assemble using other
+    cross-assemblers.
+
+    The style of most of the files is unusual.  The labels generally take the 
+    form of the letter L followed by the four-character address in hexadecimal.
+
+    Above this is a pseudo label by which the routine is referred to in a wide 
+    range of books and magazines.  Labels are as first designated by Dr. Ian 
+    Logan, Dr. Frank O'Hara and Gianluca Carri.  In general, labels from the 
+    ZX Spectrum have been applied backwards to the ZX81 and ZX80 even when the 
+    labels for the original ZX81 Disassembly and original ZX80 source code 
+    became known.  This is beneficial in that it reveals a quite remarkable 
+    evolution.
+
+
