@@ -18,10 +18,19 @@ include "z80.z.6502"
 .dumpptr skip 2
 .clrptr skip 2
 
-org $7c
-.insctr skip 4
-
 .zp_end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; 16 bytes that are accessible from BASIC after BREAK.
+;
+; $80-$8F may contain junk on entry, as they're used by the loader.
+org $70
+
+IF zp_end>=P%:ERROR "zero page overflow":ENDIF
+
+.insctr skip 4
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -340,7 +349,9 @@ jsr zunpack_flags
 ; FMS-Z80 does this, for reasons unknown.
 lda #$F0:sta zrsph
 
-lda ta_z80_log_file:jsr printhex:jsr osnewl
+IF LOG_Z80_STATE
+; lda ta_z80_log_file:jsr printhex:jsr osnewl
+ENDIF
 
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
 lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
@@ -371,11 +382,34 @@ FOR i,0,3:stz insctr+i:NEXT
 ; {inc insctr+0:bne nc:inc insctr+1:bne nc:inc insctr+2:bne nc:inc insctr+3:.nc}
 
 
+IF LIMIT_Z80_INSTRS
+; Bump instruction counter and check for limit reached.
+{
+FOR i,0,3:inc insctr+i:bne nc:NEXT
+.nc
 
-lda zaborted:bne finish		; go back to BASIC so the error can be seen...
-lda zrpcl:cmp #$0a:bne cont
-lda zrpch:cmp #$12:beq finish
+FOR i,3,0,-1
+lda insctr+i:cmp #(MAX_Z80_INSTRS>>(i*8))AND255:bcc cont
+NEXT
+jsr printfstr:equs 13,13,"Instruction count reached",13,255
+jmp finish
 .cont
+}
+ENDIF
+
+IF STOP_AT_Z80_PC
+; Final PC value reached?
+{
+lda zrpcl:cmp #<Z80_STOP_PC:bne cont
+lda zrpch:cmp #>Z80_STOP_PC:bne cont
+jsr printfstr:equs 13,13,"Final PC reached",13,255
+jmp finish
+.cont
+}
+ENDIF
+
+; Check for abort. Go back to BASIC if so.
+lda zaborted:bne finish
 
 IF LOG_Z80_STATE
 ; Print some crap and save some log data.

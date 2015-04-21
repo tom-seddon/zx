@@ -84,6 +84,16 @@ inx:bne nc:iny:.nc
 rts
 }
 
+.zwrite
+{
+sei
+DO_STORE_XY_KEEPX
+cli
+rts
+}
+
+IF P%>&3000:ERROR "write routines overlap shadow RAM":ENDIF
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,14 +101,6 @@ rts
 {
 sei
 DO_LOAD_XY
-cli
-rts
-}
-
-.zwrite
-{
-sei
-DO_STORE_XY_KEEPX
 cli
 rts
 }
@@ -429,34 +431,48 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-MACRO DO_ZSUB_OR_CP is_sub
-lda zra:tax:sbc zop__tmp
+MACRO DO_ZSUB_OR_CP_THEN_RTS is_sub
+
+; Res = Lhs [Acc] - Rhs [zop__tmp]
+
+lda zra				; A = Lhs
+tax				; X = Lhs
+sbc zop__tmp			; A = Res
+
+; SUB/SBC store the result to the accumulator
 IF is_sub:sta zra:ENDIF
-sta zfszval			; Set/reset S+Z
 
- ; CP sets bits 5+3 from the operand.
-IF is_sub:sta zf53val:ELSE:ldy zop__tmp:sty zf53val:ENDIF
+sta zfszval			; S/Z from result
 
-ror a:eor #$80:sta zfcval			    ; Set/reset C
-txa:eor zop__tmp:eor zra:sta zfhval		    ; Set/reset H
-lda #128:sta zfnval				    ; Set N
-ldy #ZP0_VALUE:bvc nv:ldy #ZP1_VALUE:.nv:sty zfpval ; Set/reset P
+; CP sets bits 5+3 from operand; SUB/SBC, from result.
+IF is_sub:sta zf53val:ELSE:lda zop__tmp:sta zf53val:ENDIF ; 5/3 as appropriate
+
+ror a:eor #$80:sta zfcval	; C from result
+
+txa				; A = Lhs
+eor zop__tmp			; A = Lhs ^ Rhs
+eor zfszval			; A = Lhs ^ Rhs ^ Res
+sta zfhval			; H from result
+
+lda #128:sta zfnval		; Set N
+
+bvs setv			; P from result
+.resetv:ldy #ZP0_VALUE:sty zfpval:rts
+.setv:ldy #ZP1_VALUE:sty zfpval:rts
 ENDMACRO
 
 .zdo_sub
 {
 sec
 sta zop__tmp			    ; zsub__tmp=operand B
-DO_ZSUB_OR_CP 1
-rts
+DO_ZSUB_OR_CP_THEN_RTS 1
 }
 
 .zdo_sbc
 {
 sta zop__tmp
 lda zfcval:eor #$80:asl a
-DO_ZSUB_OR_CP 1
-rts
+DO_ZSUB_OR_CP_THEN_RTS 1
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -466,8 +482,7 @@ rts
 {
 sec
 sta zop__tmp
-DO_ZSUB_OR_CP 0
-rts
+DO_ZSUB_OR_CP_THEN_RTS 0
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

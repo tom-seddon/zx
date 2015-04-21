@@ -5,7 +5,7 @@ TVOL:=~/beeb/beeb-files/stuff/zx/7
 TSRC:=../tests
 VERBOSE:= #-v
 DEST:=../build
-ZXBAOPTS:=-DLOG_Z80_STATE=1
+ZXBAOPTS:=
 
 .PHONY:all
 all:
