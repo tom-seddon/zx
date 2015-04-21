@@ -10,13 +10,24 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <stdio.h>
+#include <vector>
 #include "Z80.h"
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
 static uint8_t g_z80_mem[65536];
-static Z80 g_z80_state;
+
+
+struct LogEntry
+{
+    uint8_t f,a,c,b,e,d,l,h;
+    uint8_t f2,a2,c2,b2,e2,d2,l2,h2;
+    uint8_t ixl,ixh,iyl,iyh,spl,sph,pcl,pch;
+};
+
+static FILE *g_log_file;
+static std::vector<LogEntry> g_log_entries;
 
 static bool g_quit;
 
@@ -182,14 +193,74 @@ static void RedrawScreen(int n)
 	    //wprintw(g_swin,"%04X",g_z80_state.PC.W);
 	}
 
-	wprintw(g_swin," %d",y);
 	if(y==0)
 	    wprintw(g_swin," %d",n);
+	else if(y==2)
+	    wprintw(g_swin," %zu",g_log_entries.size());
 	
 	//wprintw(g_swin," %d\n",n);
     }
 
     wrefresh(g_swin);
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+static void LogZ80State(const Z80 *z)
+{
+    // f a c b e d l h
+    // f' a' c' b' e' d' l' h'
+    // IXl IXh IYl IYh SPl SPh PCl PCh
+
+    g_log_entries.emplace_back();
+    LogEntry *save=&g_log_entries.back();
+    
+    save->f=z->AF.B.l;
+    save->a=z->AF.B.h;
+    save->c=z->BC.B.l;
+    save->b=z->BC.B.h;
+    save->e=z->DE.B.l;
+    save->d=z->DE.B.h;
+    save->l=z->HL.B.l;
+    save->h=z->HL.B.h;
+    save->f2=z->AF1.B.l;
+    save->a2=z->AF1.B.h;
+    save->c2=z->BC1.B.l;
+    save->b2=z->BC1.B.h;
+    save->e2=z->DE1.B.l;
+    save->d2=z->DE1.B.h;
+    save->l2=z->HL1.B.l;
+    save->h2=z->HL1.B.h;
+    save->ixl=z->IX.B.l;
+    save->ixh=z->IX.B.h;
+    save->iyl=z->IY.B.l;
+    save->iyh=z->IY.B.h;
+    save->spl=z->SP.B.l;
+    save->sph=z->SP.B.h;
+    save->pcl=z->PC.B.l;
+    save->pch=z->PC.B.h;
+}
+
+static void FlushLog()
+{
+    if(g_log_entries.empty())
+	return;
+
+    if(!g_log_file)
+	return;
+
+    fwrite(&g_log_entries[0],sizeof g_log_entries[0],g_log_entries.size(),g_log_file);
+    g_log_entries.clear();
+}
+
+static void CloseLogFile()
+{
+    if(g_log_file)
+    {
+	fclose(g_log_file);
+	g_log_file=nullptr;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -248,6 +319,16 @@ void PatchZ80(register Z80 *R)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+byte DebugZ80(register Z80 *R)
+{
+    LogZ80State(R);
+    
+    return 1;
+}
+
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
 int main()
 {
     LoadROM();
@@ -255,6 +336,9 @@ int main()
     setlocale(LC_ALL,"");
     initscr();
     atexit(&DoEndwin);
+
+    g_log_file=fopen("z80_log.dat","wb");
+    atexit(&CloseLogFile);
     
     start_color();
     noecho();
@@ -264,7 +348,8 @@ int main()
 
     UpdateWindows();
 
-    ResetZ80(&g_z80_state);
+    Z80 z80_state;
+    ResetZ80(&z80_state);
 
     int num_redraws=0;
     int num_instrs=0;
@@ -272,7 +357,7 @@ int main()
     
     for(;;)
     {
-	ExecZ80(&g_z80_state,1);
+	ExecZ80(&z80_state,1);
 
 	bool redraw=false;
 	
@@ -281,7 +366,7 @@ int main()
 	{
 	    num_instrs=0;
 	    redraw=true;
-	    IntZ80(&g_z80_state,255);
+	    IntZ80(&z80_state,255);
 	}
 
 	if(step)
@@ -290,16 +375,17 @@ int main()
 	if(redraw)
 	{
 	    RedrawScreen(num_redraws++);
+	    FlushLog();
 	}
 
-	if(g_z80_state.PC.W==0x0c0a)
+	if(z80_state.PC.W==0x12a9)
 	{
-	    //step=true;
+	    break;
 	}
 
 	if(step)
 	{
-	    const Z80 *z=&g_z80_state;
+	    const Z80 *z=&z80_state;
 	    
 	    wprintw(g_dwin,"%04X : AF =%04X BC =%04X DE =%04X HL =%04X  IX=%04X  PC=%04X\n",
 		    z->PC.W,z->AF.W,z->BC.W,z->DE.W,z->HL.W,z->IX.W,z->PC.W);
