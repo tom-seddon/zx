@@ -2,7 +2,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ; ROMSEL value for high byte of each Z80 address.
-.romsel_table:FOR i,0,255:EQUB 4+(i>>6):NEXT
+.romsel_read_table
+FOR i,0,255
+EQUB 4+(i>>6)
+NEXT
+
+; And for writes.
+.romsel_write_table
+FOR i,0,255
+if i<64
+; This is ROM on the Spectrum, so map it to a M128 ROM slot.
+;
+; (Another option would be one romsel table and two msb_tables, with
+; the write msb_table mapping ROM writes to &E0xx, or whatever. That
+; would work too.)
+EQUB 9		
+ELSE
+EQUB 4+(i>>6)
+ENDIF
+NEXT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
