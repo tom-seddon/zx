@@ -847,7 +847,7 @@ ZNEXT 8
 
 .zop_ld_i_a
 {
-lda zri:sta zra
+lda zra:sta zri
 ZNEXT 9
 }
 
