@@ -5,6 +5,7 @@ TVOL:=~/beeb/beeb-files/stuff/zx/7
 TSRC:=../tests
 VERBOSE:= #-v
 DEST:=../build
+ZXBAOPTS:=-DLOG_Z80_STATE=1
 
 .PHONY:all
 all:
@@ -16,8 +17,8 @@ all:
 	$(BEEBASM) -i daa_test.6502 -volume $(VOL)
 	$(BEEBASM) -i m128test.6502 -volume $(VOL) # $(VERBOSE)
 	$(BEEBASM) -i m128test2.6502 -volume $(VOL) # $(VERBOSE)
-	$(BEEBASM) -i zx_main.6502 -volume $(VOL) -l $(DEST)/zx_main.lst $(VERBOSE)
-	$(BEEBASM) -i zx_load.6502 -volume $(VOL) -l $(DEST)/zx_load.lst $(VERBOSE)
+	$(BEEBASM) -i zx_main.6502 -volume $(VOL) -l $(DEST)/zx_main.lst $(VERBOSE) $(ZXBAOPTS)
+	$(BEEBASM) -i zx_load.6502 -volume $(VOL) -l $(DEST)/zx_load.lst $(VERBOSE) $(ZXBAOPTS)
 
 	set_bbc_lea --io $(VOL)/CM128TST
 	set_bbc_lea --io $(VOL)/CM128TS2

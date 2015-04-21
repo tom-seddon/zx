@@ -18,7 +18,15 @@ include "z80.z.6502"
 .dumpptr skip 2
 .clrptr skip 2
 
+org $7c
+.insctr skip 4
+
 .zp_end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+include "transfer.c.6502"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -320,15 +328,65 @@ ldx #<cmd:ldy #>cmd:jmp oscli
 ; jsr loadprog
 ; ;lda #'B':jsr save_swram
 
+lda ta_z80_log_file:jsr printhex:jsr osnewl
+
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
 lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
 
+lda #$80:sta zquit
+
+lda ta_z80_log_file:sta log_state_gbpb_block
+
+FOR i,0,3:stz insctr+i:NEXT
+
+.zrun_test_loop
+
+; jsr osnewl:lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch
+; ldx zrpcl:ldy zrpch:jsr zread:jsr printhex
+; jsr osrdch
+
+; {inc insctr+0:bne nc:inc insctr+1:bne nc:inc insctr+2:bne nc:inc insctr+3:.nc}
+
+
+
+lda zaborted:bne finish		; go back to BASIC so the error can be seen...
+lda zrpcl:cmp #$0a:bne cont
+lda zrpch:cmp #$12:beq finish
+.cont
+
 jsr zrun
+
+; Print some crap and save some log data.
+{
+lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
+
+jsr zpack_flags
+
+FOR i,0,3:STZ log_state_gbpb_block+1+i:NEXT
+lda #zstate_end-zstate_begin:sta log_state_gbpb_block+5+0
+FOR i,1,3:STZ log_state_gbpb_block+5+i:NEXT
+
+lda #2				; put bytes at PTR#
+ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
+jsr osgbpb:bcs bad_gbpb
+}
+
+jmp zrun_test_loop
 ;lda #'C':jsr save_swram
 
+.finish
+lda #0:tay:jsr osfind		; close all files
 ldx #<basic:ldy #>basic:jmp oscli
 
+.bad_gbpb:brk:equs 255,"OSGBPB fail",255
+
 .basic:equs "BASIC",13
+
+.log_state_gbpb_block
+equb 0				; file handle
+equd zstate_begin		; start of data to transfer
+equd zstate_end-zstate_begin	; number of bytes to transfer
+equd 0				; pointer to use
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

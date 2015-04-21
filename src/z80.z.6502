@@ -1,32 +1,37 @@
 ; Z80 registers
 .zrbegin
+
+.zstate_begin
+.zrf skip 1:.zra skip 1
 .zrc skip 1:.zrb skip 1
 .zre skip 1:.zrd skip 1
 .zrl skip 1:.zrh skip 1
-.zra skip 1
-.zrf skip 1
 
-.zrb2 skip 1
-.zrc2 skip 1
-.zrd2 skip 1
-.zre2 skip 1
-.zrh2 skip 1
-.zrl2 skip 1
 .zra2 skip 1
 .zrf2 skip 1
+.zrc2 skip 1
+.zrb2 skip 1
+.zre2 skip 1
+.zrd2 skip 1
+.zrl2 skip 1
+.zrh2 skip 1
 
-.zri skip 1
-.zrr skip 1
 .zrixl skip 1:.zrixh skip 1
 .zriyl skip 1:.zriyh skip 1
 .zrspl skip 1:.zrsph skip 1
 .zrpcl skip 1
 .zrpch skip 1
+.zstate_end
+
+.zri skip 1
+.zrr skip 1
 
 .ziff1 skip 1
 .ziff2 skip 1
 
 .zrend
+
+IF zstate_end-zstate_begin!=24:ERROR "state is wrong size":ENDIF
 
 ; The 16-bit registers must be placed together, low byte first.
 IF zrb!=zrc+1:ERROR "BC not together":ENDIF
@@ -39,7 +44,7 @@ IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 ; Additional related storage
 
 ; Z80 interrupt mode.
-.zinterrupt_mode skip 0
+.zinterrupt_mode skip 1
 
 ; bit 7 = bit 7 of R.
 .zrr_bit7 skip 1
@@ -54,6 +59,12 @@ IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 .zfnval skip 1			; Z80 N flag comes from bit 7
 .zfhval skip 1			; Z80 H flag comes from bit 4
 .zf53val skip 1			; Values for bits 5+3
+
+; Set bit 7 to quit.
+.zquit skip 1
+
+; Bit flags TBC. Non-zero if the emulator had to abort for whatever reason.
+.zaborted skip 1
 
 ; LSB of word fetched by zfetch2.
 .zfetch2_lsb skip 1

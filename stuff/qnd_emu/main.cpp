@@ -26,6 +26,8 @@ struct LogEntry
     uint8_t ixl,ixh,iyl,iyh,spl,sph,pcl,pch;
 };
 
+static_assert(sizeof(LogEntry)==24,"");
+
 static FILE *g_log_file;
 static std::vector<LogEntry> g_log_entries;
 
@@ -378,7 +380,7 @@ int main()
 	    FlushLog();
 	}
 
-	if(z80_state.PC.W==0x12a9)
+	if(z80_state.PC.W==0x120a)
 	{
 	    break;
 	}

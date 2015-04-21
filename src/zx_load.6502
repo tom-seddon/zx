@@ -37,6 +37,11 @@ guard $90
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+include "transfer.c.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 org $e00
 guard $3000
 
@@ -51,18 +56,46 @@ jsr check_system
 
 jsr printstr:equb 22,7,255
 
-jsr printstr:equb "Initialising memory...",255
+jsr printstr:equb "V0.1",255
+
+jsr printstr:equb 13,10,"Initialising...",255
 jsr clear_ram
 
-jsr printstr:equs 13,10,"Loading Spectrum ROM...",255
+IF LOG_Z80_STATE
+jsr printstr:equb 13,10,"Opening log file...",255
+jsr open_log_file
+ENDIF
+
+jsr printstr:equs 13,10,"Loading...",255
 ldx #<load_rom_cmd:ldy #>load_rom_cmd:jsr oscli
 
-jsr printstr:equs 13,10,"Starting Spectrum...",255
+jsr printstr:equs 13,10,"Starting...",255
 ldx #<cmd:ldy #>cmd:jmp oscli
 
 .load_rom_cmd:equs "SRLOAD R.48K 8000 4",13
 .cmd:equs "RUN ZX2",13
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+IF LOG_Z80_STATE
+.open_log_file
+{
+lda #0:tay:jsr osfind		; close all files
+
+lda #$80			; open for writing
+ldx #<log_file_name:ldy #>log_file_name:jsr osfind
+cmp #0:bne ok
+brk:equs 255,"Failed to open log file",255
+
+.ok
+sta ta_z80_log_file
+rts
+
+.log_file_name:equs ":6.L.ZX",13
+}
+ENDIF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -75,6 +108,9 @@ lda $fe34:pha
 
 ; clear $00-$90
 ldx #$00:.zloop:stz $00,X:inx:bpl zloop
+
+; clear low RAM
+ldx #4:ldy #4:lda #0:jsr fill_pages
 
 ; clear $8000-$C000
 ; lda #4:jsr clear_rom ; Spectrum ROM will go here.
