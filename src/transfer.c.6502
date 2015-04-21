@@ -8,7 +8,9 @@
 
 org $400
 
+IF LOG_Z80_STATE
 .ta_z80_log_file skip 1
+ENDIF
 
 guard $500
 

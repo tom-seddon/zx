@@ -347,9 +347,18 @@ lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
 
 lda #$80:sta zquit
 
+IF LOG_Z80_STATE
 lda ta_z80_log_file:sta log_state_gbpb_block
 ; Write log version
 tay:lda #1:jsr osbput
+ENDIF
+
+; jsr zpack_flags
+; jsr printfstr:
+; equs "HVal: ",1,zfhval,13,"53Val: ",1,zf53val,13,"CVal: ",1,zfcval,13
+; equs "NVal: ",1,zfnval,13,"SZVal: ",1,zfszval,13,"PVal: ",1,zfpval,13
+; equs "F: ",1,zrf,13,255
+; jsr osrdch
 
 FOR i,0,3:stz insctr+i:NEXT
 
@@ -368,9 +377,13 @@ lda zrpcl:cmp #$0a:bne cont
 lda zrpch:cmp #$12:beq finish
 .cont
 
+IF LOG_Z80_STATE
 ; Print some crap and save some log data.
 {
-lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
+; lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
+; jsr osnewl
+; lda log_state_gbpb_block+10:jsr printhex:lda log_state_gbpb_block+9:jsr printhex
+; jsr osnewl
 
 jsr zpack_flags
 
@@ -381,7 +394,19 @@ FOR i,1,3:STZ log_state_gbpb_block+5+i:NEXT
 lda #2				; put bytes at PTR#
 ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
 jsr osgbpb:bcs bad_gbpb
+
+; Print a message every 64K of log data output.
+lda log_state_gbpb_block+11:.checkb2:cmp #0:beq done
+sta checkb2+1
+jsr printstr:equs "Wrote: ",255:
+lda log_state_gbpb_block+12:jsr printhex
+lda log_state_gbpb_block+11:jsr printhex
+lda log_state_gbpb_block+10:jsr printhex
+lda log_state_gbpb_block+9:jsr printhex
+jsr osnewl
+.done
 }
+ENDIF
 
 jsr zrun
 
@@ -396,11 +421,13 @@ ldx #<basic:ldy #>basic:jmp oscli
 
 .basic:equs "BASIC",13
 
+IF LOG_Z80_STATE
 .log_state_gbpb_block
 equb 0				; file handle
 equd zstate_begin		; start of data to transfer
 equd zstate_end-zstate_begin	; number of bytes to transfer
 equd 0				; pointer to use
+ENDIF
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
