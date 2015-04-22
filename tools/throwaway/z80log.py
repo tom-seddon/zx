@@ -138,7 +138,8 @@ def diff(options):
             for k in range(len(fnames)):
                 print "%s:"%fnames[k]
                 print "    %s"%get_vlist_str(vlists[k],regs)
-            break
+
+            if not options.keep_going: break
 
 
 ##########################################################################
@@ -183,6 +184,12 @@ if __name__=="__main__":
     diffp=subp.add_parser("diff",
                           help="diff trace files")
     diffp.set_defaults(func=diff)
+
+    diffp.add_argument("-k",
+                       "--keep-going",
+                       action="store_true",
+                       default=False,
+                       help="keep going after the first discrepancy")
 
     diffp.add_argument("--53",
                        action="store_true",
