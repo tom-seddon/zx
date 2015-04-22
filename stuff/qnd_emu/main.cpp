@@ -125,8 +125,8 @@ static void UpdateWindows()
 
     if(w<128||h<110)
     {
-	fprintf(stderr,"FATAL: screen must be at least 128x110.\n");
-	exit(1);
+    	fprintf(stderr,"FATAL: screen must be at least 128x110.\n");
+    	exit(1);
     }
 
     g_swin=newwin(96,w,0,0);
@@ -270,7 +270,8 @@ static void CloseLogFile()
 
 void WrZ80(register word Addr,register byte Value)
 {
-    g_z80_mem[Addr]=Value;
+    if(Addr>=0x4000)
+	g_z80_mem[Addr]=Value;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -323,8 +324,11 @@ void PatchZ80(register Z80 *R)
 
 byte DebugZ80(register Z80 *R)
 {
+    // Do this from DebugZ80, not from the main loop!
+    //
+    // EI resets the Z80 cycle counter and will therefore run another
+    // instruction.
     LogZ80State(R);
-    
     return 1;
 }
 
@@ -356,6 +360,7 @@ int main()
     Z80 z80_state;
     memset(&z80_state,0,sizeof z80_state);
     ResetZ80(&z80_state);
+    z80_state.Trace=1;
 
     int num_redraws=0;
     int num_instrs=0;
@@ -367,12 +372,10 @@ int main()
 
 	bool redraw=false;
 	
-	++num_instrs;
-	if(num_instrs>10000)
+	if(num_instrs++%10000==0)
 	{
-	    num_instrs=0;
 	    redraw=true;
-	    IntZ80(&z80_state,255);
+	    //IntZ80(&z80_state,255);
 	}
 
 	if(step)
@@ -384,7 +387,7 @@ int main()
 	    FlushLog();
 	}
 
-	if(z80_state.PC.W==0x120a)
+	if(num_instrs>1000000)//z80_state.PC.W==0x120a)
 	{
 	    break;
 	}
