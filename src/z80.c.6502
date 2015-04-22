@@ -517,7 +517,6 @@ sta zfszval			; Set/reset S+Z
 sta zfpval			; Set/reset P
 lda #ZH_MASK:sta zfhval		; Set H
 stz zfnval			; Reset N
-stz zfhval			; Reset H
 stz zfcval			; Reset C
 rts
 }
