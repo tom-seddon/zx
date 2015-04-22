@@ -235,7 +235,7 @@ case LDIR:
   }
   while(R->BC.W&&(R->ICount>0));
   R->AF.B.l&=~(N_FLAG|H_FLAG|P_FLAG);
-  if(R->BC.W) { R->AF.B.l|=N_FLAG;R->PC.W-=2; }
+  if(R->BC.W) { R->AF.B.l|=P_FLAG;R->PC.W-=2; }
   else R->ICount+=5;
   break;
 
@@ -253,7 +253,7 @@ case LDDR:
   }
   while(R->BC.W&&(R->ICount>0));
   R->AF.B.l&=~(N_FLAG|H_FLAG|P_FLAG);
-  if(R->BC.W) { R->AF.B.l|=N_FLAG;R->PC.W-=2; }
+  if(R->BC.W) { R->AF.B.l|=P_FLAG;R->PC.W-=2; }
   else R->ICount+=5;
   break;
 
