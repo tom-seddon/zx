@@ -982,6 +982,94 @@ lda ziff2:bne setp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+MACRO DO_COPY
+ldx zrl:ldy zrh:jsr load_xy	; load from (HL)
+ldx zre:ldy zrd:jsr store_xy	; store to (DE)
+ENDMACRO
+
+MACRO DO_INC_DE
+{inc zre:bne nc:inc zrd:.nc}	; ++DE
+ENDMACRO
+
+MACRO DO_INC_HL
+{inc zrl:bne nc:inc zrh:.nc}	; ++HL
+ENDMACRO
+
+MACRO DO_DEC_DE
+{lda zre:beq nc:dec zrd:.nc:dec zre} ; --DE
+ENDMACRO
+
+MACRO DO_DEC_HL
+{lda zrl:beq nc:dec zrh:.nc:dec zrl} ; --HL
+ENDMACRO
+
+MACRO DO_DEC_BC
+{lda zrc:beq nc:dec zrb:.nc:dec zrc} ; --BC
+ENDMACRO
+
+MACRO DO_BC_LOOP checkz
+lda zrc:ora zrb:beq done
+
+IF checkz:LDA zfszval:bne done:ENDIF
+
+; This is a bit weird. But it's what the documentation says the chip
+; does, and it's certainly easy to write.
+{sec:lda zrpcl:sbc #2:sta zrpcl:bcs nb:dec zrpch:.nb}
+
+.done
+ENDMACRO
+
+.zop_ldi
+{
+DO_COPY:DO_INC_DE:DO_INC_HL:DO_DEC_BC
+ZNEXT 16
+}
+
+.zop_ldir
+{
+DO_COPY:DO_INC_DE:DO_INC_HL:DO_DEC_BC:DO_BC_LOOP FALSE
+ZNEXT 21
+}
+
+.zop_ldd
+{
+DO_COPY:DO_DEC_DE:DO_DEC_HL:DO_DEC_BC
+ZNEXT 16
+}
+
+.zop_lddr
+{
+DO_COPY:DO_DEC_DE:DO_DEC_HL:DO_DEC_BC:DO_BC_LOOP FALSE
+ZNEXT 21
+}
+
+; .zop_cpi
+; {
+; COMPARE:INC_HL:DEC_BC
+; ZNEXT 16
+; }
+
+; .zop_cpir
+; {
+; COMPARE:INC_HL:DEC_BC:BC_LOOP TRUE
+; ZNEXT 21
+; }
+
+; .zop_cpd
+; {
+; COMPARE:DEC_HL:DEC_BC
+; ZNEXT 16
+; }
+
+; .zop_cpdr
+; {
+; COMPARE:DEC_HL:DEC_BC:BC_LOOP TRUE
+; ZNEXT 21
+; }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; Gets effective address for (IX+d) or (IY+d).
 
 ; Entry: i[xy]l,i[xy]h - IX value; zdisplacement - 8-bit displacement

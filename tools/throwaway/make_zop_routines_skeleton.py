@@ -744,8 +744,13 @@ def get_ed_opcodes():
                 elif by==6: instr=nop
                 elif by==7: instr=nop
         elif bx==2:
-            if bz<=3 and by>=4: pass
-            else: instr=nop
+            if bz>=4 or by<4: instr=nop
+            elif bz==0:
+                if by==4: instr=ManualInstr("zop_ldi","ldi")
+                if by==5: instr=ManualInstr("zop_ldd","ldd")
+                if by==6: instr=ManualInstr("zop_ldir","ldir")
+                if by==7: instr=ManualInstr("zop_lddr","lddr")
+            else: pass
 
         instrs[opcode]=instr
 

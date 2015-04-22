@@ -31,7 +31,7 @@ LOG_Z80_STATE=FALSE
 LIMIT_Z80_INSTRS=FALSE
 MAX_Z80_INSTRS=1000
 
-STOP_AT_Z80_PC=TRUE
+STOP_AT_Z80_PC=FALSE
 Z80_STOP_PC=$120a
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

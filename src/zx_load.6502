@@ -60,7 +60,7 @@ jsr check_system
 
 jsr printstr:equb 22,128,22,132,28,0,31,39,24,255
 
-jsr define_font
+; jsr define_font
 
 jsr printstr:equb "ZX V0.1 ",135," 2015",255
 
