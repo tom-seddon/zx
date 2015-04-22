@@ -1,3 +1,4 @@
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -982,6 +983,8 @@ lda ziff2:bne setp
 MACRO DO_COPY
 ldx zrl:ldy zrh:jsr load_xy	; load from (HL)
 ldx zre:ldy zrd:jsr store_xy	; store to (DE)
+stz zfhval			; H=0
+stz zfnval			; N=0
 ENDMACRO
 
 MACRO DO_INC_DE
@@ -993,15 +996,30 @@ MACRO DO_INC_HL
 ENDMACRO
 
 MACRO DO_DEC_DE
-{lda zre:beq nc:dec zrd:.nc:dec zre} ; --DE
+{lda zre:bne nc:dec zrd:.nc:dec zre} ; --DE
 ENDMACRO
 
 MACRO DO_DEC_HL
-{lda zrl:beq nc:dec zrh:.nc:dec zrl} ; --HL
+{lda zrl:bne nc:dec zrh:.nc:dec zrl} ; --HL
 ENDMACRO
 
 MACRO DO_DEC_BC
-{lda zrc:beq nc:dec zrb:.nc:dec zrc} ; --BC
+lda zrc
+bne nb
+dec zrb				; C=0, so borrow into B
+.nb
+dec a				; decrement C
+sta zrc				; store new C value
+ora zrb				; A=0 if BC=0
+beq storep
+lda #1
+.storep
+; If BC==0, A=0 (ZP1_VALUE)
+; If BC!=0, A=1 (ZP0_VALUE)
+eor #1
+; If BC==0, A=1 (ZP0_VALUE)
+; If BC!=0, A=0 (ZP1_VALUE)
+sta zfpval
 ENDMACRO
 
 MACRO DO_BC_LOOP checkz
@@ -1014,6 +1032,7 @@ IF checkz:LDA zfszval:bne done:ENDIF
 {sec:lda zrpcl:sbc #2:sta zrpcl:bcs nb:dec zrpch:.nb}
 
 .done
+
 ENDMACRO
 
 .zop_ldi
@@ -1213,9 +1232,6 @@ asl a:tax:bcs b7set
 .b7reset:jmp (zop_table_DD_0xxxxxxx,X)
 .b7set:jmp (zop_table_DD_1xxxxxxx,X)
 }
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
