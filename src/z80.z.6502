@@ -63,6 +63,11 @@ IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 ; Set bit 7 to quit.
 .zquit skip 1
 
+IF LOG_Z80_STATE
+; Set bit 7 to log.
+.zlog skip 1
+ENDIF
+
 ; Bit flags TBC. Non-zero if the emulator had to abort for whatever reason.
 .zaborted skip 1
 

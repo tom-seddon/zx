@@ -361,7 +361,7 @@ lda #$80:sta zquit
 IF LOG_Z80_STATE
 lda ta_z80_log_file:sta log_state_gbpb_block
 ; Write log version
-tay:lda #1:jsr osbput
+tay:lda #2:jsr osbput
 ENDIF
 
 ; jsr zpack_flags
@@ -382,20 +382,20 @@ FOR i,0,3:stz insctr+i:NEXT
 ; {inc insctr+0:bne nc:inc insctr+1:bne nc:inc insctr+2:bne nc:inc insctr+3:.nc}
 
 
-IF LIMIT_Z80_INSTRS
-; Bump instruction counter and check for limit reached.
-{
-FOR i,0,3:inc insctr+i:bne nc:NEXT
-.nc
+; IF LIMIT_Z80_INSTRS
+; ; Bump instruction counter and check for limit reached.
+; {
+; FOR i,0,3:inc insctr+i:bne nc:NEXT
+; .nc
 
-FOR i,3,0,-1
-lda insctr+i:cmp #(MAX_Z80_INSTRS>>(i*8))AND255:bcc cont
-NEXT
-jsr printfstr:equs 13,13,"Instruction count reached",13,255
-jmp finish
-.cont
-}
-ENDIF
+; FOR i,3,0,-1
+; lda insctr+i:cmp #(MAX_Z80_INSTRS>>(i*8))AND255:bcc cont
+; NEXT
+; jsr printfstr:equs 13,13,"Instruction count reached",13,255
+; jmp finish
+; .cont
+; }
+; ENDIF
 
 IF STOP_AT_Z80_PC
 ; Final PC value reached?
@@ -408,12 +408,61 @@ jmp finish
 }
 ENDIF
 
+IF LOG_Z80_STATE
+jsr update_log
+ENDIF
+
+jsr zrun
+
 ; Check for abort. Go back to BASIC if so.
 lda zaborted:bne finish
 
-IF LOG_Z80_STATE
-; Print some crap and save some log data.
+jmp zrun_test_loop
+;lda #'C':jsr save_swram
+
+.finish
+lda #0:tay:jsr osfind		; close all files
+lda #15:ldx #0:jsr osbyte	; flush all buffers
+ldx #<basic:ldy #>basic:jmp oscli
+
+.start_log
 {
+
+rts
+}
+
+.not_logging
+{
+; Not logging currently. Increment instruction counter.
+inc insctr+0:bne done
+inc insctr+1:bne done
+inc insctr+2:bne done
+inc insctr+3
+.done
+rts
+}
+
+IF LOG_Z80_STATE
+.update_log
+{
+bit zlog:bmi write_to_log
+
+; Check for log start. Reached the LOG FROM INSTRUCTION value?
+lda insctr+3:cmp #(LOG_FROM_INSTRUCTION>>24)AND255:bcc not_logging
+lda insctr+2:cmp #(LOG_FROM_INSTRUCTION>>16)AND255:bcc not_logging
+lda insctr+1:cmp #(LOG_FROM_INSTRUCTION>>8)AND255:bcc not_logging
+lda insctr+0:cmp #(LOG_FROM_INSTRUCTION>>0)AND255:bcc not_logging
+
+; LOG_FROM_INSTRUCTION was reached. Start the log.
+lda #$80:sta zlog
+
+; Write the starting instruction number.
+ldx #0:ldy ta_z80_log_file:.bput_insctr_loop:lda insctr,X:jsr osbput:inx:cpx #4:bne bput_insctr_loop
+
+; Print a message
+jsr printstr:equs 13,10,"Starting log.",13,10,255
+
+.write_to_log
 ; lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
 ; jsr osnewl
 ; lda log_state_gbpb_block+10:jsr printhex:lda log_state_gbpb_block+9:jsr printhex
@@ -427,31 +476,24 @@ FOR i,1,3:STZ log_state_gbpb_block+5+i:NEXT
 
 lda #2				; put bytes at PTR#
 ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
-jsr osgbpb:bcs bad_gbpb
+jsr osgbpb:{bcc ok:jmp bad_gbpb:.ok}
 
 ; Print a message every 64K of log data output.
 lda log_state_gbpb_block+11:.checkb2:cmp #0:beq done
 sta checkb2+1
 jsr printstr:equs "Wrote: ",255:
-lda log_state_gbpb_block+12:jsr printhex
-lda log_state_gbpb_block+11:jsr printhex
-lda log_state_gbpb_block+10:jsr printhex
-lda log_state_gbpb_block+9:jsr printhex
+FOR i,3,0,-1:lda log_state_gbpb_block+9+i:jsr printhex:NEXT
 jsr osnewl
 .done
+
+; Check whether a key was pressed. (AUG p151)
+lda #$80:ldx #$ff:jsr osbyte:cpx #1:bcs key_pressed:rts
+
+.key_pressed:lda #$80:sta zaborted:rts
 }
 ENDIF
 
-jsr zrun
-
-jmp zrun_test_loop
-;lda #'C':jsr save_swram
-
-.finish
-lda #0:tay:jsr osfind		; close all files
-ldx #<basic:ldy #>basic:jmp oscli
-
-.bad_gbpb:brk:equs 255,"OSGBPB fail",255
+.bad_gbpb:brk:equs 255,"Log write fail",255
 
 .basic:equs "BASIC",13
 

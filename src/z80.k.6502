@@ -18,6 +18,8 @@ ZC_MASK=1<<ZC_BIT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; ZP0_VALUE = ZP1_VALUE EOR 1
+
 ZP0_VALUE=1			; a value that would reset the P flag
 ZP1_VALUE=0			; a value that would set the P flag
 
@@ -26,10 +28,8 @@ ZP1_VALUE=0			; a value that would set the P flag
 
 ; Debug junk
 
-LOG_Z80_STATE=FALSE
-
-LIMIT_Z80_INSTRS=FALSE
-MAX_Z80_INSTRS=1000
+LOG_Z80_STATE=TRUE
+LOG_FROM_INSTRUCTION=639000
 
 STOP_AT_Z80_PC=FALSE
 Z80_STOP_PC=$120a
