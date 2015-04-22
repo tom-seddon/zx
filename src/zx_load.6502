@@ -34,6 +34,9 @@ org $80
 guard $90
 
 .strptr skip 2
+.chptr skip 2
+.ch skip 1
+.copyptr skip 2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,9 +58,11 @@ guard $3000
 {
 jsr check_system
 
-jsr printstr:equb 22,7,255
+jsr printstr:equb 22,128,22,132,28,0,31,39,24,255
 
-jsr printstr:equb "V0.1",255
+jsr define_font
+
+jsr printstr:equb "ZX V0.1 ",135," 2015",255
 
 jsr printstr:equb 13,10,"Initialising...",255
 jsr clear_ram
@@ -67,14 +72,67 @@ jsr printstr:equb 13,10,"Opening log file...",255
 jsr open_log_file
 ENDIF
 
-jsr printstr:equs 13,10,"Loading...",255
+jsr printstr:equs 13,10,"Loading ROM...",255
 ldx #<load_rom_cmd:ldy #>load_rom_cmd:jsr oscli
+
+jsr printstr:equs 13,10,"Loading writers...",255
+ldx #<load_writers_cmd:ldy #>load_writers_cmd:jsr oscli
+jsr copy_writers
 
 jsr printstr:equs 13,10,"Starting...",255
 ldx #<cmd:ldy #>cmd:jmp oscli
 
+.load_writers_cmd:equs "LOAD ZXW",13
 .load_rom_cmd:equs "SRLOAD R.48K 8000 4",13
-.cmd:equs "RUN ZX2",13
+.cmd
+; equs "BASIC",13
+equs "RUN ZX2",13
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; copy $3000-$5800 from main RAM to shadow RAM
+.copy_writers
+{
+ldx #$28			; page count
+
+stz copyptr+0:lda #$30:sta copyptr+1
+ldy #0
+.loop:
+lda (copyptr),Y:pha			     ; read source byte
+lda #0:sta (copyptr),Y			     ; leave a 0 there
+lda $fe34:ora #acccon_x:sta $fe34	     ; page in shadow RAM
+pla:sta (copyptr),Y			     ; copy into shadow RAM
+lda $fe34:and #NOT(acccon_x)AND255:sta $fe34 ; page out shadow RAM
+iny:bne loop
+inc copyptr+1
+dex:bne loop
+
+; stz $d6:lda #$30:sta $d7
+; .loop:lda ($d6):jsr oswrsc:lda #0:sta ($d6):inc $d6:bne loop
+; inc $d7:dex:bne loop
+
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.define_font
+{
+ldy #32
+.loop:jsr define_char:iny:cpy #127:bne loop
+ldy #135:jsr define_char
+rts
+
+.define_char
+{
+lda #23:jsr oswrch:tya:jsr oswrch
+ldx #0:.loop:.load:lda font,X:jsr oswrch:inx:cpx #8:bne loop
+clc:lda load+1:adc #8:sta load+1:bcc nc:inc load+2:.nc
+rts
+}
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,11 +177,14 @@ lda #5:jsr clear_rom
 lda #6:jsr clear_rom
 lda #7:jsr clear_rom
 
-; clear main RAM
-lda $fe34:and #NOT(acccon_x)AND255:sta $fe34:ldy #>code_end:ldx #$7c->code_end:lda #0:jsr fill_pages
+; clear main RAM, excluding $3000-$5800 (which is where the writers
+; will go)
+; lda $fe34:and #NOT(acccon_x)AND255:sta $fe34
+ldy #>code_end:ldx #$30->code_end:lda #0:jsr fill_pages
+ldy #$58:ldx #$28:lda #0:jsr fill_pages
 
 ; clear shadow RAM
-lda $fe34:ora #acccon_x:sta $fe34:ldy #$30:ldx #$50:jsr fill_pages
+; lda $fe34:ora #acccon_x:sta $fe34:ldy #$30:ldx #$50:jsr fill_pages
 
 pla:sta $fe34
 pla:sta $f4:sta $fe30
@@ -231,6 +292,12 @@ jsr oswrch:bra loop
 .done
 rts
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.font
+incbin "../stuff/spectrum_font.dat"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

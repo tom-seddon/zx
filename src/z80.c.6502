@@ -46,15 +46,18 @@ rts
 ; Entry: X (LSB), Y (MSB) - address; A - value to write
 ;
 ; Exit: X changed, A/Y preserved
-.store_xy
-{
-stx write+1
-ldx romsel_write_table,Y:stx romsel;:stx $f4
-ldx msb_table,Y:stx write+2
-.write:sta FIX_xxxx
-.done
-rts
-}
+; .store_xy
+; {
+; stx write+1
+; ldx romsel_write_table,Y:stx romsel;:stx $f4
+; ldx msb_table,Y:stx write+2
+; .write:sta FIX_xxxx
+; .done
+; rts
+; }
+
+ACCCON_PAGE_IN_SHADOW=acccon_y OR acccon_x OR acccon_e OR acccon_d
+ACCCON_PAGE_OUT_SHADOW=acccon_y OR acccon_e OR acccon_d ; default value
 
 ; As above, but preserves X. 2 cycles slower, but quicker than STX
 ; zp:STORE_XY:LDX zp.
@@ -63,13 +66,31 @@ stx loadx+1
 ldx romsel_write_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .loadx:ldx #FIX_xx:.write:sta FIX_xx00,X
+cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
+.screen
+sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
+lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
+.reloada:lda #FIX_xx:.j
+; bit FIX_xxxx
+jsr FIX_xxxx
+ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
+.reloady:ldy j+2
+.not_screen
 .done
+IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
 ENDMACRO
 
+; Used in macro form by zpush_pc
 MACRO DO_STORE_XY_PREDEC
 dex:cpx #$ff:bne nb:dey:.nb
 DO_STORE_XY_KEEPX
 ENDMACRO
+
+.store_xy
+{
+DO_STORE_XY_KEEPX
+rts
+}
 
 .store_xy_predec
 {
@@ -91,8 +112,6 @@ DO_STORE_XY_KEEPX
 cli
 rts
 }
-
-IF P%>&3000:ERROR "write routines overlap shadow RAM":ENDIF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -19,8 +19,10 @@ all:
 	$(BEEBASM) -i m128test2.6502 -volume $(VOL) # $(VERBOSE)
 	$(BEEBASM) -i zx_main.6502 -volume $(VOL) -l $(DEST)/zx_main.lst $(VERBOSE) $(ZXBAOPTS)
 	$(BEEBASM) -i zx_load.6502 -volume $(VOL) -l $(DEST)/zx_load.lst $(VERBOSE) $(ZXBAOPTS)
+	$(BEEBASM) -i zx_writers.6502 -volume $(VOL) -l $(DEST)/zx_writers.lst $(VERBOSE) $(ZXBAOPTS)
 
 	set_bbc_lea --io $(VOL)/CM128TST
 	set_bbc_lea --io $(VOL)/CM128TS2
 	set_bbc_lea --io $(VOL)/_doZX
 	set_bbc_lea --io $(VOL)/_doZX2
+	set_bbc_lea --io $(VOL)/_doZXW
