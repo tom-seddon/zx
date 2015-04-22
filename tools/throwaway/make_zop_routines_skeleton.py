@@ -307,7 +307,7 @@ def dec_ind8(r):
     return Instr("dec (%s)"%r.indfull,
                  x_rmw_ind(r,["stx zindex__tmp+0",
                               "jsr zdo_dec",
-                              "ldy zindex__tmp+0"]),
+                              "ldx zindex__tmp+0"]),
                  [4,4,3])
 
 def inc_r16(r):
@@ -724,8 +724,8 @@ def get_ed_opcodes():
             if bz==0: instr=in_r_c(regs_8bit[None][by])
             elif bz==1: instr=out_c_r(regs_8bit[None][by])
             elif bz==2:
-                if bq==0: instr=adc_hl_r16(regs_16bit[None][bp])
-                elif bq==1:instr=sbc_hl_r16(regs_16bit[None][bp])
+                if bq==0: instr=sbc_hl_r16(regs_16bit[None][bp])
+                elif bq==1:instr=adc_hl_r16(regs_16bit[None][bp])
             elif bz==3:
                 if bq==0: instr=ld_mem_r16(regs_16bit[None][bp])
                 elif bq==1: instr=ld_r16_mem(regs_16bit[None][bp])
