@@ -290,7 +290,7 @@ cmp #$80:beq setv
 ; Changes: A, X. Preserves: Y.
 .zdo_dec
 {
-sta zop__tmp:dec a:tax:eor #$ff:eor zop__tmp:sta zfhval:txa
+sta zop__tmp:dec a:tax:eor zop__tmp:sta zfhval:txa
 sta zfszval
 sta zf53val
 ldx #$80:stx zfnval
