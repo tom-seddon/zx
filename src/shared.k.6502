@@ -22,6 +22,9 @@ acccon_x=4			; Shadow RAM paged in - 1=yes; 0=no
 acccon_e=2			; B+-style shadow RAM mode - 1=yes, 0=no
 acccon_d=1			; Display RAM - 1=shadow 0=main
 
+ACCCON_PAGE_IN_SHADOW=acccon_y OR acccon_x OR acccon_e OR acccon_d
+ACCCON_PAGE_OUT_SHADOW=acccon_y OR acccon_e OR acccon_d ; default value
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

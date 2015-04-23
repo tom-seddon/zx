@@ -57,9 +57,6 @@ rts
 ; rts
 ; }
 
-ACCCON_PAGE_IN_SHADOW=acccon_y OR acccon_x OR acccon_e OR acccon_d
-ACCCON_PAGE_OUT_SHADOW=acccon_y OR acccon_e OR acccon_d ; default value
-
 ; As above, but preserves X. 2 cycles slower, but quicker than STX
 ; zp:STORE_XY:LDX zp.
 MACRO DO_STORE_XY_KEEPX
