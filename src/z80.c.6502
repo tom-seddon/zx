@@ -14,8 +14,6 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Entry: X (LSB), Y (MSB) - address
-; Exit: A - byte read, NZ set accordingly, X/Y preserved
 
 MACRO DO_LOAD_XY
 lda romsel_read_table,Y:sta romsel;:sta $f4
@@ -28,13 +26,20 @@ DO_LOAD_XY
 inx:bne nc:iny:.nc
 ENDMACRO
 
+; Entry: X = LSB of address; Y = MSB of address
+
+; Exit: A = byte read, with NZ flags set accordingly; X = (unmodified);
+; Y = (unmodified)
 .load_xy
 {
 DO_LOAD_XY
 rts
 }
 
-; As LOAD_XY, but increments the address afterwards.
+; Entry: X = LSB of address; Y = MSB of address
+
+; Exit: A = byte read, with NZ flags set accordingly; address in Y/X
+; incremented
 .load_xy_postinc
 {
 DO_LOAD_XY_POSTINC
@@ -84,18 +89,33 @@ dex:cpx #$ff:bne nb:dey:.nb
 DO_STORE_XY_KEEPX
 ENDMACRO
 
+; Write value to Z80 memory.
+
+; Entry: X = LSB of address; Y = MSB of address; A = value to write
+
+; Exit: A = random; X = (unmodified); Y = (unmodified)
 .store_xy
 {
 DO_STORE_XY_KEEPX
 rts
 }
 
+; Write value to Z80 memory, decrementing the address before the write
+
+; Entry: X = LSB of address; Y = MSB of address; A = value to write
+
+; Exit: A = random; address in Y/X decremented
 .store_xy_predec
 {
 DO_STORE_XY_PREDEC
 rts
 }
 
+; Write value to Z80 memory, incrementing the address after the write.
+
+; Entry: X = LSB of address; Y = MSB of address; A = value to write
+
+; Exit: A = random; address in Y/X incremented
 .store_xy_postinc
 {
 DO_STORE_XY_KEEPX
@@ -103,39 +123,51 @@ inx:bne nc:iny:.nc
 rts
 }
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Write value to Z80 memory. For use from outside the Z80 emulation
+; code.
+
+; Entry: X = LSB of address; Y = MSB of address; A = value to write
+
+; Exit: A = random; X = (unmodified); Y = (unmodified)
 .zwrite
 {
+php
 sei
 DO_STORE_XY_KEEPX
-cli
+plp
 rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Write value to Z80 memory. For use from outside the Z80 emulation
+; code.
+
+; Entry: X = LSB of address; Y = MSB of address; A = value to write
+
+; Exit: A = value read; X = (unmodified); Y = (unmodified)
 .zread
 {
+php
 sei
 DO_LOAD_XY
-cli
+plp
 rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; Entry:
+; Read value from Z80 PC with postincrement.
 
-; zpcl,zpch - address to fetch
+; Entry: zpcl,zpch = address to fetch
 
-; Exit:
-
-; A - byte read
-
-; zpcl,zpch incremented
-
-; X, Y changed
+; Exit: A = byte read; zpcl, zpch = updated PC; X = LSB of updated PC;
+; Y = MSB of updated PC
 
 .zfetch
 {
@@ -554,61 +586,107 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; The shifts/rotates operate on 6502 accumulator, preserving X and Y.
+; The non-accumulator shifts/rotates operate on 6502 accumulator,
+; preserving X and Y.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_RLC
+cmp #$80:rol a
+sta zf53val			; 5/3 set from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+ror zfcval			; C from result
+ENDMACRO
+
+.zop_rlca
+{
+lda zra:DO_RLC:sta zra
+ZNEXT 4
+}
 
 .zdo_rlc
 {
+DO_RLC
+sta zfszval			; S/Z set from result
+sta zfpval			; P set from result
 cmp #$80:rol a
-ror zfcval			; C set from old bit 7
-sta zf53val			; 5/3 set from result
-stz zfhval			; H reset
-stz zfnval			; N reset
 rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_RRC
+sta zop__tmp:lsr a:lda zop__tmp:ror a
+sta zf53val			; 5/3 set from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+ror zfcval			; C from result
+ENDMACRO
+
+.zop_rrca
+{
+lda zra:DO_RRC:sta zra
+ZNEXT 4
+}
 
 .zdo_rrc
 {
-sta zop__tmp:lsr a:lda zop__tmp:ror a
-ror zfcval			; C set from old bit 0
-sta zf53val			; 5/3 set from result
-stz zfhval			; H reset
-stz zfnval			; N reset
+DO_RRC
+sta zfszval			; S/Z from result
+sta zfpval			; P from result
 rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_RL
+asl zfcval:rol a
+sta zf53val			; 5/3 from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+ror zfcval			; C from result
+ENDMACRO
+
+.zop_rla
+{
+lda zra:DO_RL:sta zra
+ZNEXT 4
+}
 
 .zdo_rl
 {
-asl zfcval:rol a
-ror zfcval			; C set from old bit 7
+DO_RL
 sta zfszval			; S/Z set from result
-sta zf53val			; 5/3 set from result
-stz zfhval			; H reset
 sta zfpval			; P set from result
-stz zfnval			; N reset
 rts
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+MACRO DO_RR
+asl zfcval:ror a
+sta zf53val			; 5/3 from result
+stz zfhval			; H=0
+stz zfnval			; N=0
+ror zfcval			; C from result
+ENDMACRO
+
+.zop_rra
+{
+lda zra:DO_RR:sta zra
+ZNEXT 4
+}
+
 .zdo_rr
 {
-asl zfcval:ror a
-ror zfcval			; C set from old bit 0
+DO_RR
 sta zfszval			; S/Z set from result
-sta zf53val			; 5/3 set from result
-stz zfhval			; H reset
 sta zfpval			; P set from result
-stz zfnval			; N reset
 rts
 }
 

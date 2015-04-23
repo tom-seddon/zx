@@ -217,7 +217,7 @@ def ld_r16_r16(d,s):
                  lines,
                  [6])
 
-def push(r):
+def push_r16(r):
     if r is None: return None
     lines=[]
     if r is reg_af: lines=["jsr zpack_flags"]
@@ -585,18 +585,10 @@ def get_unprefixed_opcodes(prefix):
                 if by==6: instr=ld_ind8_imm(regs_16bit[prefix][2])
                 else: instr=ld_r8_imm(regs_8bit[prefix][by])
             elif bz==7:
-                if by==0: instr=Instr("rlca",
-                                      ["lda zra:jsr zdo_rlc:sta zra"],
-                                      [4])
-                elif by==1: instr=Instr("rrca",
-                                        ["lda zra:jsr zdo_rrc:sta zra"],
-                                        [4])
-                elif by==2: instr=Instr("rla",
-                                        ["lda zra:jsr zdo_rl:sta zra"],
-                                        [4])
-                elif by==3: instr=Instr("rra",
-                                        ["lda zra:jsr zdo_rr:sta zra"],
-                                        [4])
+                if by==0: instr=ManualInstr("zop_rlca","rlca")
+                elif by==1: instr=ManualInstr("zop_rrca","rrca")
+                elif by==2: instr=ManualInstr("zop_rla","rla")
+                elif by==3: instr=ManualInstr("zop_rra","rra")
                 elif by==4: instr=ManualInstr("zop_daa","daa")
                 elif by==5: instr=ManualInstr("zop_cpl","cpl")
                 elif by==6: instr=ManualInstr("zop_scf","scf")
@@ -642,7 +634,7 @@ def get_unprefixed_opcodes(prefix):
             elif bz==4:
                 instr=callcc(by)
             elif bz==5:
-                if bq==0: instr=push(regs_16bit[prefix][bp])
+                if bq==0: instr=push_r16(stackable_regs_16bit[prefix][bp])
                 elif bq==1:
                     if bp==0: instr=call()
                     elif bp==1: instr=ManualInstr("zprefixdd","prefix_dd")

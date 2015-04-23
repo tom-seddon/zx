@@ -7,8 +7,8 @@
 .zre skip 1:.zrd skip 1
 .zrl skip 1:.zrh skip 1
 
-.zra2 skip 1
 .zrf2 skip 1
+.zra2 skip 1
 .zrc2 skip 1
 .zrb2 skip 1
 .zre2 skip 1
