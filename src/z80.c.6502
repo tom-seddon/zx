@@ -675,16 +675,45 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; .caller skip 2
+
 .zdo_bit
 {
+
+; pla:sta caller+0:pla:sta caller+1:pha:lda caller+0:pha
+
+; {
+; phy:phx:pha
+
+; lda zrpcl:cmp #$e0:bne no
+; lda zrpch:cmp #$0d:bne no
+
+; lda caller+1:jsr printhex
+; lda caller+0:jsr printhex
+; lda #'-':jsr oswrch
+
+; jsr zget_iy_displaced
+; tya:jsr printhex
+; txa:jsr printhex
+; lda #'+':jsr oswrch
+; lda zdisplacement:jsr printhex
+; lda #':':jsr oswrch
+; pla:pha:jsr printhex
+; lda #' ':jsr oswrch
+
+; .no
+; pla:plx:ply
+; }
+
 ; SZ5H3VNC
 ; *Z513*0-
 sta zfszval			; S/Z set from result
 sta zf53val			; 5/3 set from result
-ldy #ZP0_VALUE:tax:beq pv_done:ldy #ZP1_VALUE:.pv_done ; PV set same as Z
+ldy #ZP0_VALUE:tax:bne pv_done:ldy #ZP1_VALUE:.pv_done
+sty zfpval			; PV set same as Z
 lda #$10:sta zfhval		; H set
 stz zfnval			; N reset
-; C unalterened
+; C unaltered
 rts
 }
 
@@ -772,6 +801,40 @@ tya:eor zra:sta zfhval		; H set from operation.
 
 ; And that's it.
 ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_cpl
+{
+lda zra:eor #$ff:sta zra
+lda #$10:sta zfhval
+lda #$80:sta zfnval
+ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_scf
+{
+lda #$80:sta zfcval
+stz zfhval
+stz zfnval
+ZNEXT 4
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_ccf
+{
+stz zfnval
+lda zfcval:eor #$80:sta zfcval
+bmi reseth
+.seth:lda #$10:sta zfhval:ZNEXT 4
+.reseth:stz zfhval:ZNEXT 4
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -979,6 +1042,23 @@ lda ziff2:bne setp
 
 MACRO DO_COPY
 ldx zrl:ldy zrh:jsr load_xy	; load from (HL)
+
+; {
+; phx:phy:pha
+; lda zrpcl:cmp #$87:bne no
+; lda zrpch:cmp #$12:bne no
+; lda zrh:jsr printhex
+; lda zrl:jsr printhex
+; lda #'>':jsr oswrch
+; pla:pha:jsr printhex:
+; lda #'>':jsr oswrch
+; lda zrd:jsr printhex
+; lda zre:jsr printhex
+; lda #' ':jsr oswrch 
+; .no
+; pla:ply:plx
+; }
+
 ldx zre:ldy zrd:jsr store_xy	; store to (DE)
 stz zfhval			; H=0
 stz zfnval			; N=0
@@ -1089,20 +1169,36 @@ ZNEXT 21
 
 ; Exit: X (LSB), Y (MSB) - effective address
 
-MACRO DO_GET_INDEX_DISPLACED l,h
-clc:lda l:adc zdisplacement:tax
+MACRO DO_INDEX_DISPLACED l,h
+clc:adc l:tax
 ldy h:bcc nc:iny:.nc
 ENDMACRO
 
 .zget_ix_displaced
 {
-DO_GET_INDEX_DISPLACED zrixl,zrixh
+lda zdisplacement
+DO_INDEX_DISPLACED zrixl,zrixh
 rts
 }
 
 .zget_iy_displaced
 {
-DO_GET_INDEX_DISPLACED zriyl,zriyh
+lda zdisplacement
+DO_INDEX_DISPLACED zriyl,zriyh
+rts
+}
+
+.zfetch_ix_displaced
+{
+jsr zfetch
+DO_INDEX_DISPLACED zrixl,zrixh
+rts
+}
+
+.zfetch_iy_displaced
+{
+jsr zfetch
+DO_INDEX_DISPLACED zriyl,zriyh
 rts
 }
 
@@ -1239,7 +1335,7 @@ jsr zfetch:inc zrr
 
 asl a:tax:bcs b7set
 .b7reset:jmp (zop_table_FD_0xxxxxxx,X)
-.b7set:jmp (zop_table_DD_1xxxxxxx,X)
+.b7set:jmp (zop_table_FD_1xxxxxxx,X)
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

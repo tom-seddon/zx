@@ -61,18 +61,29 @@ class ManualInstr:
 ##########################################################################
 ##########################################################################
 
+# Handle (IX+d), (IY+d) and (HL) vaguely transparently...sort of.
+
+# Pass True for is_cb if this is one of the bit operations in the
+# DDCB/FDCB set - this flag indicates whether the displacement byte
+# was already set (is_cb True) or whether it needs fetching (is_cb
+# False).
+
+def x_displaced_routine(r,is_cb):
+    return "z%s_%s_displaced"%("get" if is_cb else "fetch",r.full)
+
 # On entry to instruction-specific code: byte in A.
-def x_read_ind(r,lines):
+def x_read_ind(r,lines,is_cb=False):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zget_%s_displaced"%r.full,
+        return (["jsr %s"%x_displaced_routine(r,is_cb),
                 "jsr load_xy"]+
                 lines)
     else:
-        return ["ldx zr%s:ldy zr%s:jsr load_xy"%(r.l,r.h)]
+        return ["ldx zr%s:ldy zr%s:jsr load_xy"%(r.l,r.h)]+lines
 
-def x_write_ind_imm(r):
+def x_write_ind_imm(r,is_cb=False):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zget_%s_displaced"%r.full,
+        return (["jsr %s"%x_displaced_routine(r,is_cb),
+                 "stx zindex__tmp+0:sty zindex__tmp+1",
                  "jsr zfetch",  # imm
                  "ldx zindex__tmp+0:ldy zindex__tmp+1:jsr store_xy"])
     else:
@@ -85,9 +96,9 @@ def x_write_ind_imm(r):
 #
 # (this could be done more optimally... but it makes stuff like ld
 # (hl),l simpler if the addresses is loaded first.)
-def x_write_ind(r,lines):
+def x_write_ind(r,lines,is_cb=False):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zget_%s_displaced"%r.full]+
+        return (["jsr %s"%x_displaced_routine(r,is_cb)]+
                 lines+
                 ["jsr store_xy"])
     else:
@@ -98,9 +109,9 @@ def x_write_ind(r,lines):
 # On entry to instruction-specific code: bte in A, and address in YX,
 # that must be preserved. (Use of zindex__tmp+0 and zindex__tmp+1 is
 # fine.) Put byte to write in A.
-def x_rmw_ind(r,lines):
+def x_rmw_ind(r,lines,is_cb=False):
     if r is reg_ix or r is reg_iy:
-        return (["jsr zget_%s_displaced"%r.full,
+        return (["jsr %s"%x_displaced_routine(r,is_cb),
                  "jsr load_xy"]+
                 lines+
                 ["jsr store_xy"])
@@ -414,7 +425,7 @@ def rot_ind(mnem,ir,dest_reg=None):
         lines+=["sta zr%s"%dest_reg] 
     
     return Instr(dis,
-                 x_rmw_ind(ir,lines),
+                 x_rmw_ind(ir,lines,True),
                  [4,4,4,3])
 
 def bit_r8(bitn,r):
@@ -424,7 +435,7 @@ def bit_r8(bitn,r):
 
 def bit_ind(bitn,ir):
     return Instr("bit %d,(%s)"%(bitn,ir.indfull),
-                 x_read_ind(ir,["and #$%02X:jsr zdo_bit"%(1<<bitn)]),
+                 x_read_ind(ir,["and #$%02X:jsr zdo_bit"%(1<<bitn)],True),
                  [4,4,4])
 
 def set_r8(bitn,r):
@@ -441,7 +452,7 @@ def set_ind(bitn,ir,dest_reg=None):
         lines+=["sta zr%s"%dest_reg] 
     
     return Instr(dis,
-                 x_rmw_ind(ir,lines),
+                 x_rmw_ind(ir,lines,True),
                  [4,4,4,3])
 
 def res_r8(bitn,r):
@@ -458,7 +469,7 @@ def res_ind(bitn,ir,dest_reg=None):
         lines+=["sta zr%s"%dest_reg] 
     
     return Instr(dis,
-                 x_rmw_ind(ir,lines),
+                 x_rmw_ind(ir,lines,True),
                  [4,4,4,3])
 
 def out_c_r(r):
@@ -587,22 +598,9 @@ def get_unprefixed_opcodes(prefix):
                                         ["lda zra:jsr zdo_rr:sta zra"],
                                         [4])
                 elif by==4: instr=ManualInstr("zop_daa","daa")
-                elif by==5: instr=Instr("cpl",
-                                        ["lda zra:eor #$ff:sta zra",
-                                         "lda #1:sta zfhval",
-                                         "sta zfnval"],
-                                        [4])
-                elif by==6: instr=Instr("scf",
-                                        ["lda #128:sta zfcval",
-                                         "stz zfhval",
-                                         "stz zfnval"],
-                                        [4])
-                elif by==7: instr=Instr("ccf",
-                                        ["ldx #0",
-                                         "lda zfcval:eor #$80:sta zfcval",
-                                         "bmi was_reset:ldx #$ff:.was_reset",
-                                         "stz zfnval"],
-                                        [4])
+                elif by==5: instr=ManualInstr("zop_cpl","cpl")
+                elif by==6: instr=ManualInstr("zop_scf","scf")
+                elif by==7: instr=ManualInstr("zop_ccf","ccf")
         elif bx==1:
             if bz==6 and by==6: instr=ManualInstr("zop_halt","halt")
             elif bz==6: instr=ld_r8_ind(regs_8bit[prefix][by],regs_16bit[prefix][2])
