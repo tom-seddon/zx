@@ -363,41 +363,11 @@ def jpcc(cond):
                   ".no"],
                  [4,3,3])
 
-# def ret():
-#     return Instr("ret",
-#                  ["ldx zrspl:ldy zrsph",
-#                   "jsr load_xy_postinc:sta zrpcl",
-#                   "jsr load_xy_postinc:sta zrpch",
-#                  "stx zrspl:sty zrsph"],
-#                  [4,3,3])
-
-def retcc(cond):
-    return Instr("ret %s"%cond_names[cond],
-                 [conds[cond],
-                  "ldx zrspl:ldy zrsph",
-                  "jsr load_xy_postinc:sta zrpcl",
-                  "jsr load_xy_postinc:sta zrpch",
-                  "stx zrspl:sty zrsph",
-                  "ZTSTATES(3):ZTSTATES(3)",
-                  ".no"],
-                 [5])
-
 def jp_ind(r):
     if r is None: return None
     return Instr("jp (%s)"%r.full,
                  ["lda zr%s:sta zrpcl:lda zr%s:sta zrpch"%(r.l,r.h)],
                  [4,4])
-
-def callcc(cond):
-    return Instr("call %s,nn"%cond_names[cond],
-                 ["jsr zfetch2:sta zop__tmp",
-                  conds[cond],
-                  "jsr zpush_pc",
-                  "lda zfetch2_lsb:sta zrpcl",
-                  "lda zop__tmp:sta zrpch",
-                  "ZTSTATES(4):ZTSTATES(3)",
-                  ".no"],
-                 [4,3,3])
 
 def call():
     return Instr("call nn",
@@ -533,33 +503,12 @@ def get_unprefixed_opcodes(prefix):
             if bz==0:
                 if by==0:
                     instr=nop
-                elif by==1:
-                    # ex af,af'
-                    instr=ex_af_af()
-                elif by==2:
-                    # djnz d
-                    instr=Instr("djnz d",
-                                ["jsr zfetch", # disp
-                                 "dec zrb:beq nb",
-                                 "jsr zdisplace_pc",
-                                 "ZTSTATES(5)",
-                                 ".nb"],
-                                [5,3])
-                elif by==3:
-                    # jr d
-                    instr=Instr("jr d",
-                                ["jsr zfetch", # disp
-                                 "jsr zdisplace_pc"],
-                                [4,3,5])
+                elif by==1: instr=ex_af_af()
+                elif by==2: instr=ManualInstr("zop_djnz","djnz d")
+                elif by==3: instr=ManualInstr("zop_jr","jr d")
                 elif by>=4:
-                    # jr cc[y-4],d
-                    instr=Instr("jr %s,d"%(["nz","z","nc","c"][by-4]),
-                                ["jsr zfetch", # disp
-                                 conds[by-4],
-                                 "jsr zdisplace_pc",
-                                 "ZTSTATES(5)",
-                                 ".no"],
-                                [4,3])
+                    cond=cond_names[by-4]
+                    instr=ManualInstr("zop_jr%s"%cond,"jr %s,d"%cond)
             elif bz==1:
                 if bq==0: instr=ld_r16_imm(regs_16bit[prefix][bp])
                 elif bq==1: instr=add_r16_r16(regs_16bit[prefix][2],regs_16bit[prefix][bp])
@@ -603,7 +552,8 @@ def get_unprefixed_opcodes(prefix):
             else: instr=alu_r8(alu_mnemonics[by],regs_8bit[prefix][bz])
         elif bx==3:
             if bz==0:
-                instr=retcc(by)
+                cond=cond_names[by]
+                instr=ManualInstr("zop_ret%s"%cond,"ret %s"%cond)
             elif bz==1:
                 if bq==0:
                     instr=pop_r16(stackable_regs_16bit[prefix][bp])
@@ -632,7 +582,8 @@ def get_unprefixed_opcodes(prefix):
                 elif by==6: instr=ManualInstr("zop_di","di")
                 elif by==7: instr=ManualInstr("zop_ei","ei")
             elif bz==4:
-                instr=callcc(by)
+                cond=cond_names[by]
+                instr=ManualInstr("zop_call%s"%cond,"call %s"%cond)
             elif bz==5:
                 if bq==0: instr=push_r16(stackable_regs_16bit[prefix][bp])
                 elif bq==1:

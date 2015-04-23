@@ -255,10 +255,8 @@ jmp zbad
 ENDMACRO
 
 MACRO ZNEXT cycles
+IF cycles==0:ERROR "cycles must be greater than 0":ENDIF
 jmp znext
-ENDMACRO
-
-MACRO ZTSTATES n
 ENDMACRO
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1237,6 +1235,108 @@ ZNEXT 21
 ; COMPARE:DEC_HL:DEC_BC:BC_LOOP TRUE
 ; ZNEXT 21
 ; }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_djnz
+{
+jsr zfetch			; disp
+dec zrb:bne taken
+.not_taken:ZNEXT 8:rts
+.taken:jsr zdisplace_pc:ZNEXT 13:rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.zop_jr
+{
+jsr zfetch
+jsr zdisplace_pc
+ZNEXT 4+3+5
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; No higher-order macros :( :(
+
+COND_NZ=0:COND_Z=1
+COND_NC=2:COND_C=3
+COND_PO=4:COND_PE=5
+COND_P=6:COND_M=7
+
+MACRO DO_BRANCH_IF cond,dest
+IF cond==COND_Z:ldx zfszval:beq dest
+ELIF cond==COND_NZ:ldx zfszval:bne dest
+ELIF cond==COND_C:bit zfcval:bmi dest
+ELIF cond==COND_NC:bit zfcval:bpl dest
+ELIF cond==COND_PE:ldx zfpval:lda p_flag_values,X:bne dest
+ELIF cond==COND_PO:ldx zfpval:lda p_flag_values,X:beq dest
+ELIF cond==COND_M:bit zfszval:bmi dest
+ELIF cond==COND_P:bit zfszval:bpl dest
+ELSE:ERROR "bad condition"
+ENDIF
+ENDMACRO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_JRCC cond
+jsr zfetch			; disp
+DO_BRANCH_IF cond,taken
+.not_taken:ZNEXT 7
+.taken:jsr zdisplace_pc:ZNEXT 12
+ENDMACRO
+
+.zop_jrc:DO_JRCC COND_C
+.zop_jrnc:DO_JRCC COND_NC
+.zop_jrz:DO_JRCC COND_Z
+.zop_jrnz:DO_JRCC COND_NZ
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_RETCC cond
+DO_BRANCH_IF cond,ret
+.no_ret:ZNEXT 5
+.ret
+jsr zpop_pc
+ZNEXT 11
+ENDMACRO
+
+.zop_retnz:DO_RETCC COND_NZ
+.zop_retz:DO_RETCC COND_Z
+.zop_retnc:DO_RETCC COND_NC
+.zop_retc:DO_RETCC COND_C
+.zop_retpo:DO_RETCC COND_PO
+.zop_retpe:DO_RETCC COND_PE
+.zop_retp:DO_RETCC COND_P
+.zop_retm:DO_RETCC COND_M
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+MACRO DO_CALLCC cond
+jsr zfetch2:sta zop__tmp
+DO_BRANCH_IF cond,call
+.no_call:ZNEXT 10
+.call
+jsr zpush_pc
+lda zfetch2_lsb:sta zrpcl
+lda zop__tmp:sta zrpch
+ZNEXT 17
+ENDMACRO
+
+.zop_callnz:DO_CALLCC COND_NZ
+.zop_callz:DO_CALLCC COND_Z
+.zop_callnc:DO_CALLCC COND_NC
+.zop_callc:DO_CALLCC COND_C
+.zop_callpo:DO_CALLCC COND_PO
+.zop_callpe:DO_CALLCC COND_PE
+.zop_callp:DO_CALLCC COND_P
+.zop_callm:DO_CALLCC COND_M
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
