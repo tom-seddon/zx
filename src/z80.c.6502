@@ -69,18 +69,6 @@ stx loadx+1
 ldx romsel_write_table,Y:stx romsel;:stx $f4
 ldx msb_table,Y:stx write+2
 .loadx:ldx #FIX_xx:.write:sta FIX_xx00,X
-cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
-.screen
-sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
-lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
-.reloada:lda #FIX_xx:.j
-; bit FIX_xxxx
-jsr FIX_xxxx
-ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
-.reloady:ldy j+2
-.not_screen
-.done
-IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
 ENDMACRO
 
 ; Used in macro form by zpush_pc
@@ -256,6 +244,7 @@ ENDMACRO
 
 MACRO ZNEXT cycles
 IF cycles==0:ERROR "cycles must be greater than 0":ENDIF
+lda #(-cycles)AND255
 jmp znext
 ENDMACRO
 
@@ -1383,13 +1372,6 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-.ops_start
-include "../build/z80ops.generated.6502"
-.ops_end
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 .zbad
 {
 cli
@@ -1428,6 +1410,56 @@ jmp dumpz80
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
+; .screen
+; sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
+; lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
+; .reloada:lda #FIX_xx:.j
+; ; bit FIX_xxxx
+; jsr FIX_xxxx
+; ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
+; .reloady:ldy j+2
+; .not_screen
+; .done
+; IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
+
+.next_scanline
+; T-state counter has wrapped - so it's time for another half scanline.
+;
+; There are 112 cycles per scanline. No instruction will cause this to
+; wrap, so only one half scanline need be drawn.
+
+; Adjust T-state counter.
+clc:adc #112:sta ztstates
+
+; Page in shadow RAM.
+lda #ACCCON_PAGE_IN_SHADOW:sta acccon
+
+; Page in appropriate ROM bank.
+lda #5:sta romsel
+
+; Pick up address of next scanline routine, and jump to it.
+lda zscanlineptr+1:pha
+lda zscanlineptr+0:pha
+rts
+
+.scanline_done
+; Pick up address of next scanline routine, and store it off for next
+; time.
+pla:sta zscanlineptr+0
+pla:sta zscanlineptr+1
+
+; Page out shadow RAM.
+lda #ACCCON_PAGE_OUT_SHADOW:sta acccon
+
+IF P%>&3000:error "code overlaps shadow RAM":ENDIF
+
+; Poll for quit.
+bit zquit:bmi zrun_done
+
+bra znext2
+
+
 .zrun_done
 cli
 rts
@@ -1441,7 +1473,7 @@ jmp znext2
 
 .znext
 
-bit zquit:bmi zrun_done
+clc:adc ztstates:bmi next_scanline:sta ztstates
 
 .znext2
 {
@@ -1556,6 +1588,13 @@ rts
 {
 rts
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.ops_start
+include "../build/z80ops.generated.6502"
+.ops_end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -68,6 +68,12 @@ IF LOG_Z80_STATE
 .zlog skip 1
 ENDIF
 
+; T-states counter.
+.ztstates skip 1
+
+; Pointer to next half-scanline rendering routine.
+.zscanlineptr skip 2
+
 ; Bit flags TBC. Non-zero if the emulator had to abort for whatever reason.
 .zaborted skip 1
 
