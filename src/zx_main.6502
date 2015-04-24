@@ -337,6 +337,8 @@ rts
 
 .start
 {
+jsr zxirq_install
+
 ; jsr check
 ; jsr clear
 ; ;lda #'A':jsr save_swram

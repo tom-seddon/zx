@@ -66,7 +66,7 @@ rts
 ; zp:STORE_XY:LDX zp.
 MACRO DO_STORE_XY_KEEPX
 stx loadx+1
-ldx romsel_write_table,Y:stx romsel;:stx $f4
+ldx romsel_write_table,Y:stx romsel
 ldx msb_table,Y:stx write+2
 .loadx:ldx #FIX_xx:.write:sta FIX_xx00,X
 ENDMACRO
@@ -122,10 +122,7 @@ rts
 ; Exit: A = random; X = (unmodified); Y = (unmodified)
 .zwrite
 {
-php
-sei
 DO_STORE_XY_KEEPX
-plp
 rts
 }
 
@@ -140,10 +137,7 @@ rts
 ; Exit: A = value read; X = (unmodified); Y = (unmodified)
 .zread
 {
-php
-sei
 DO_LOAD_XY
-plp
 rts
 }
 
@@ -1374,7 +1368,6 @@ rts
 
 .zbad
 {
-cli
 ror a:sta zbad__opcode
 jsr zpack_flags
 
@@ -1455,21 +1448,16 @@ lda #ACCCON_PAGE_OUT_SHADOW:sta acccon
 IF P%>&3000:error "code overlaps shadow RAM":ENDIF
 
 ; Poll for quit.
-bit zquit:bmi zrun_done
+bit zxirq_quit_requested:bmi zrun_done
 
 bra znext2
 
 
 .zrun_done
-cli
 rts
 
 .zrun
-; Stop any funny business with ROMSEL.
-sei
-
-; Don't check the quit flag straight away!
-jmp znext2
+lda #0
 
 .znext
 

@@ -1,0 +1,176 @@
+cpu 1
+
+include "shared.k.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org zxirq_base
+
+.code_begin
+
+.irq_install:jmp install
+.irq_uninstall: jmp uninstall
+.spectrum_keys_up:skip 8
+.quit_requested:skip 1
+
+IF irq_install!=zxirq_install:ERROR "irq_install is in the wrong place":ENDIF
+IF irq_uninstall!=zxirq_uninstall:ERROR "irq_uninstall is in the wrong place":ENDIF
+IF spectrum_keys_up!=zxirq_keys_up:ERROR "keys up table is in the wrong place":ENDIF
+IF quit_requested!=zxirq_quit_requested:ERROR "quit request flag is in the wrong place":ENDIF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.installed equb 0
+.old_irq1v skip 2
+.old_sysvia_ier skip 1
+.old_usrvia_ier skip 1
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.exec
+{
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.install
+{
+lda installed:bne done
+
+sei
+
+; Save VIA IERs.
+lda $fe4e:sta old_sysvia_ier
+lda $fe6e:sta old_usrvia_ier
+
+; Disable VIA interrupts.
+lda #%01111111:sta $fe4e:sta $fe6e
+
+; Enable System VIA CA1+CA2.
+lda #%10000011:sta $fe4e
+
+; Save old IRQ1V.
+lda irq1v+0:sta old_irq1v+0:lda irq1v+1:sta old_irq1v+1
+
+; Install new IRQ handler.
+lda #<handle_irq:sta irq1v+0:lda #>handle_irq:sta irq1v+1
+
+; Done...
+lda #1:sta installed
+cli
+
+.done
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.uninstall
+{
+lda installed:beq done
+
+sei
+
+; Restore old IRQ1V.
+lda old_irq1v+0:sta irq1v+0:lda old_irq1v+1:sta irq1v+1
+
+; Restore old VIA IERs.
+lda old_usrvia_ier:sta $fe6e
+lda old_sysvia_ier:sta $fe4e
+
+; Done...
+stz installed
+
+.done
+rts
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.keys_table
+{
+; MSb first 
+equb $63,$52,$42,$61,$00	; 0 - V   C   X   Z   Shf        
+equb $53,$43,$32,$51,$41	; 1 - G   F   D   S   A          
+equb $23,$33,$22,$21,$10	; 2 - T   R   E   W   Q          
+equb $13,$12,$11,$31,$30	; 3 - 5   4   3   2   1          
+equb $34,$24,$15,$26,$27	; 4 - 6   7   8   9   0          
+equb $44,$35,$25,$36,$37	; 5 - Y   U   I   O   P          
+equb $54,$45,$46,$56,$49	; 6 - H   J   K   L   Ret        
+equb $64,$55,$65,$01,$62	; 7 - B   N   M   Ctl Spc        
+}
+
+.handle_irq
+{
+lda $fe4d:bmi got_irq:jmp irq_done
+
+.got_irq
+sta $fe4d
+sta ifr
+
+phx:phy
+
+; Test CA2 - key pressed interrupt.
+{
+lsr ifr:bcc ca2_done
+
+lda #$ff:sta keys_need_polling
+
+.ca2_done
+}
+
+; Test CA1 - vsync interrupt.
+{
+lsr ifr:bcc ca1_done
+
+lda keys_need_polling:beq ca1_done
+
+; http://www.retrosoftware.co.uk/wiki/index.php/Reading_the_keyboard_by_direct_hardware_access
+lda #%01111111:sta $fe43
+lda #%00001111:sta $fe42	; allow write to addressable latch
+lda #%00000011:sta $fe40	; set bit 3 to 0
+
+ldx #7
+ldy #0
+.loop
+
+FOR i,0,4
+lda keys_table,Y:iny:sta $fe4f:lda $fe4f:asl a:rol spectrum_keys_up,X
+NEXT
+
+lda spectrum_keys_up,X:and #%00011111:eor #$ff:sta spectrum_keys_up,X
+
+dex:bpl loop
+
+; Poll f9 - quit key.
+{lda #$77:sta $fe4f:lda $fe4f:bpl no_quit:lda #$ff:sta quit_requested:.no_quit}
+
+stz keys_need_polling
+
+.ca1_done
+}
+
+ply:plx
+
+.irq_done
+lda $fc
+rti
+
+.ifr skip 1
+.keys_need_polling skip 1
+}
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.code_end
+
+SAVE "ZXIRQ",code_begin,code_end,exec

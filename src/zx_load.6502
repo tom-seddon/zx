@@ -79,9 +79,13 @@ jsr printstr:equs 13,10,"Loading writers...",255
 ldx #<load_writers_cmd:ldy #>load_writers_cmd:jsr oscli
 jsr copy_writers
 
+jsr printstr:equs 13,10,"IRQ handler...",255
+ldx #<load_irq_cmd:ldy #>load_irq_cmd:jsr oscli
+
 jsr printstr:equs 13,10,"Starting...",255
 ldx #<cmd:ldy #>cmd:jmp oscli
 
+.load_irq_cmd:equs "LOAD ZXIRQ",13
 .load_writers_cmd:equs "LOAD ZXW",13
 .load_rom_cmd:equs "SRLOAD R.48K 8000 4",13
 .cmd
