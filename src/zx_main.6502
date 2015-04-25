@@ -344,6 +344,9 @@ rts
 
 .finish
 {
+IF LOG_Z80_STATE
+jsr flush_log
+ENDIF
 jsr zxirq_uninstall
 jsr save_swram			; save memory dump
 lda #0:tay:jsr osfind		; close all files
@@ -358,9 +361,15 @@ ldx #<basic:ldy #>basic:jmp oscli
 
 .start
 jsr init_stuff
+IF LOG_Z80_STATE
+jsr start_log
+ENDIF
 
 .run_loop
 lda zaborted:bne finish
+IF LOG_Z80_STATE
+jsr add_to_log
+ENDIF
 jsr zrun
 jmp (zrun_result_table,X)
 
@@ -497,6 +506,19 @@ equw run_loop			; ZRUN_RESULT_STEPPED
 
 IF LOG_Z80_STATE
 .start_log
+
+; OSGBPB file handle.
+lda ta_z80_log_file:sta log_state_gbpb_block+0
+
+; Write log version
+ldy ta_z80_log_file:lda #2:jsr osbput
+
+; Write initial instruction
+ldy ta_z80_log_file:lda #0:jsr osbput
+ldy ta_z80_log_file:lda #0:jsr osbput
+ldy ta_z80_log_file:lda #0:jsr osbput
+ldy ta_z80_log_file:lda #0:jsr osbput
+
 jsr reset_log
 rts
 ENDIF
@@ -511,6 +533,7 @@ ENDIF
 
 IF LOG_Z80_STATE
 .add_to_log
+jsr zpack_flags
 ldx #zstate_end-zstate_begin-1
 .add_to_log_loop
 lda zstate_begin,X
@@ -519,7 +542,7 @@ dex:bpl add_to_log_loop
 
 clc:lda add_to_log_write+1:adc #zstate_end-zstate_begin:sta add_to_log_write+1
 bcc add_to_log_done
-ldx add_to_log_write+2:inx:cpx #$7f:beq .flush_log:stx add_to_log_write+2
+inc add_to_log_write+2:lda add_to_log_write+2:cmp #$7f:beq flush_log
 .add_to_log_done
 rts
 ENDIF
@@ -531,9 +554,6 @@ lda add_to_log_write+1:bne do
 lda add_to_log_write+2:cmp #>code_end:beq done
 
 .do
-; OSGBPB file handle.
-lda ta_z80_log_file:sta log_state_gbpb_block+0
-
 ; OSGBPB data start.
 stz log_state_gbpb_block+1
 lda #>code_end:sta log_state_gbpb_block+2
@@ -545,20 +565,23 @@ sec:lda add_to_log_write+2:sbc #>code_end:sta log_state_gbpb_block+6
 ; Do eet.
 lda #2	   ; put bytes at PTR#
 ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
-jsr osgbpb:bcc done
+jsr osgbpb:bcc gbpb_done
 
 ; Oh dear.
 brk:equs 255,"Log write fail",255
 
+.gbpb_done
+jsr reset_log
+
 .done
 rts
+}
 
 .log_state_gbpb_block
 equb 0				; file handle
 equd 0				; data start
 equd 0				; byte count
 equd 0				; file pointer
-}
 ENDIF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -650,11 +673,11 @@ ENDIF
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
 lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
 
-IF LOG_Z80_STATE
-lda ta_z80_log_file:sta log_state_gbpb_block
-; Write log version
-tay:lda #2:jsr osbput
-ENDIF
+; IF LOG_Z80_STATE
+; lda ta_z80_log_file:sta log_state_gbpb_block
+; ; Write log version
+; tay:lda #2:jsr osbput
+; ENDIF
 
 ; jsr zpack_flags
 ; jsr printfstr:

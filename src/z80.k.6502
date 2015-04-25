@@ -28,7 +28,7 @@ ZP1_VALUE=0			; a value that would set the P flag
 
 ; Debug junk
 
-LOG_Z80_STATE=FALSE
+LOG_Z80_STATE=TRUE
 LOG_FROM_INSTRUCTION=648000
 
 STOP_AT_Z80_PC=FALSE
