@@ -1403,6 +1403,54 @@ jmp dumpz80
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; M0 assumes supplied byte is FFh - RST $38
+;
+; M1 ignores supplied byte.
+;
+; M2 uses A value to form address.
+
+.zirq
+{
+; Ignore if IRQs are disabled.
+ldx ziff1:beq done
+
+; IRQ will be accepted, so stack PC and reset IFF1 and IFF2.
+pha
+jsr zpush_pc
+stz ziff1:stz ziff2
+pla
+
+; Check interrupt mode.
+ldx zinterrupt_mode
+cpx #2:bcc m1			; M0/M1 are treated the same.
+
+.m2
+; Form table address.
+tax:ldy zri
+
+; Load new PC.
+jsr load_xy_postinc:sta zrpcl
+jsr load_xy:sta zrpch
+
+; Done..
+.done
+rts
+
+.m1
+
+; RST 38h.
+lda #$38:sta zrpch
+lda #$00:sta zrpcl
+
+; Done.
+rts
+}
+
+IF P%>&3000:ERROR "zirq overlaps shadow RAM":ENDIF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
 ; .screen
 ; sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
