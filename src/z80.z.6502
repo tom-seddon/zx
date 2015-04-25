@@ -60,9 +60,6 @@ IF zrsph!=zrspl+1:ERROR "SP not together":ENDIF
 .zfhval skip 1			; Z80 H flag comes from bit 4
 .zf53val skip 1			; Values for bits 5+3
 
-; Set bit 7 to quit.
-.zquit skip 1
-
 IF LOG_Z80_STATE
 ; Set bit 7 to log.
 .zlog skip 1
@@ -74,7 +71,8 @@ ENDIF
 ; Pointer to next half-scanline rendering routine.
 .zscanlineptr skip 2
 
-; Bit flags TBC. Non-zero if the emulator had to abort for whatever reason.
+; Bit 7 set if illegal opcode.
+; Bit 6 if terminated by f9.
 .zaborted skip 1
 
 ; LSB of word fetched by zfetch2.

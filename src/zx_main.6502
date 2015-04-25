@@ -53,11 +53,6 @@ include "z80.d.6502"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-include "z80.c.6502"
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ; .clear
 ; {
 ; lda $f4:pha
@@ -373,9 +368,6 @@ ENDIF
 lda #<handle_in:sta zin_handler+0:lda #>handle_in:sta zin_handler+1
 lda #<handle_out:sta zout_handler+0:lda #>handle_out:sta zout_handler+1
 
-; Quit flag hack. To be removed later...
-lda #$80:sta zquit
-
 IF LOG_Z80_STATE
 lda ta_z80_log_file:sta log_state_gbpb_block
 ; Write log version
@@ -441,13 +433,18 @@ ENDIF
 
 jsr zrun
 
-; Check for abort. Go back to BASIC if so.
+cmp #0:bne check_for_quit:jsr next_scanline
+
+; Check for abort or quit key. Go back to BASIC if so.
+.check_for_quit
 lda zaborted:bne finish
+lda zxirq_quit_requested:bne finish
 
 jmp zrun_test_loop
 ;lda #'C':jsr save_swram
 
 .finish
+jsr zxirq_uninstall
 jsr save_swram			; save memory dump
 lda #0:tay:jsr osfind		; close all files
 lda #15:ldx #0:jsr osbyte	; flush all buffers
@@ -546,6 +543,69 @@ equd zstate_end-zstate_begin	; number of bytes to transfer
 equd 0				; pointer to use
 ENDIF
 }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
+; .screen
+; sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
+; lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
+; .reloada:lda #FIX_xx:.j
+; ; bit FIX_xxxx
+; jsr FIX_xxxx
+; ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
+; .reloady:ldy j+2
+; .not_screen
+; .done
+; IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
+
+.next_scanline
+{
+; T-state counter has wrapped - so it's time for another half scanline.
+;
+; There are 112 cycles per scanline. No instruction will cause this to
+; wrap, so only one half scanline need be drawn.
+
+; Adjust T-state counter.
+clc:adc #112:sta ztstates
+
+; Page in shadow RAM.
+lda #ACCCON_PAGE_IN_SHADOW:sta acccon
+
+FOR i,0,7:lda zxirq_keys_up+i:sta $5800+39*8+i:NEXT
+
+; Page in appropriate ROM bank.
+lda #5:sta romsel
+
+; Pick up address of next scanline routine, and jump to it.
+lda zscanlineptr+1:pha
+lda zscanlineptr+0:pha
+rts
+}
+
+.scanline_done
+{
+; Pick up address of next scanline routine, and store it off for next
+; time.
+pla:sta zscanlineptr+0
+pla:sta zscanlineptr+1
+
+; Page out shadow RAM.
+lda #ACCCON_PAGE_OUT_SHADOW:sta acccon
+
+rts
+}
+
+IF P%>&3000:error "code overlaps shadow RAM":ENDIF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+include "z80.c.6502"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
