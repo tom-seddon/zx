@@ -1428,6 +1428,8 @@ clc:adc #112:sta ztstates
 ; Page in shadow RAM.
 lda #ACCCON_PAGE_IN_SHADOW:sta acccon
 
+FOR i,0,7:lda zxirq_keys_up+i:sta $5800+39*8+i:NEXT
+
 ; Page in appropriate ROM bank.
 lda #5:sta romsel
 

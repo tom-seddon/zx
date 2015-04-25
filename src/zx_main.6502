@@ -324,7 +324,18 @@ ldx #<cmd:ldy #>cmd:jmp oscli
 
 .handle_in
 {
+cpx #$fe:beq ula
 rts
+
+.ula
+sty zop__tmp
+ldx #7
+lda #$ff
+.loop
+lsr zop__tmp:bcc next_row:and zxirq_keys_up,X
+.next_row:dex:bpl loop
+rts
+
 }
 
 .handle_out

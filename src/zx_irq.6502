@@ -11,7 +11,7 @@ org zxirq_base
 
 .irq_install:jmp install
 .irq_uninstall: jmp uninstall
-.spectrum_keys_up:skip 8
+.spectrum_keys_up:FOR i,0,7:equb 255:NEXT
 .quit_requested:skip 1
 
 IF irq_install!=zxirq_install:ERROR "irq_install is in the wrong place":ENDIF
@@ -52,7 +52,7 @@ lda $fe6e:sta old_usrvia_ier
 lda #%01111111:sta $fe4e:sta $fe6e
 
 ; Enable System VIA CA1+CA2.
-lda #%10000011:sta $fe4e
+lda #%10000010:sta $fe4e
 
 ; Save old IRQ1V.
 lda irq1v+0:sta old_irq1v+0:lda irq1v+1:sta old_irq1v+1
@@ -107,6 +107,10 @@ equb $54,$45,$46,$56,$49	; 6 - H   J   K   L   Ret
 equb $64,$55,$65,$01,$62	; 7 - B   N   M   Ctl Spc        
 }
 
+; ; only bottom 5 bits of each value are valid. The top 3 are junk.
+; .spectrum_keys_state:skip 8
+; .spectrum_old_keys_state:skip 8
+
 .handle_irq
 {
 lda $fe4d:bmi got_irq:jmp irq_done
@@ -130,7 +134,7 @@ lda #$ff:sta keys_need_polling
 {
 lsr ifr:bcc ca1_done
 
-lda keys_need_polling:beq ca1_done
+; lda keys_need_polling:beq ca1_done
 
 ; http://www.retrosoftware.co.uk/wiki/index.php/Reading_the_keyboard_by_direct_hardware_access
 lda #%01111111:sta $fe43
