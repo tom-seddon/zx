@@ -45,9 +45,22 @@ version_reg_tables=[((1,2),[Reg("f"),Reg("a"),
                             Reg("ixl"),Reg("ixh"),
                             Reg("iyl"),Reg("iyh"),
                             Reg("spl"),Reg("sph"),
-                            Reg("pcl"),Reg("pch"),])
+                            Reg("pcl"),Reg("pch"),]),
+                    ((3,),[Reg("f"),Reg("a"),
+                          Reg("c"),Reg("b"),
+                          Reg("e"),Reg("d"),
+                          Reg("l"),Reg("h"),
+                          Reg("f'"),Reg("a'"),
+                          Reg("c'"),Reg("b'"),
+                          Reg("e'"),Reg("d'"),
+                          Reg("l'"),Reg("h'"),
+                          Reg("ixl"),Reg("ixh"),
+                          Reg("iyl"),Reg("iyh"),
+                          Reg("spl"),Reg("sph"),
+                          Reg("pcl"),Reg("pch"),
+                          Reg("i"),
+                          Reg("iff1"),Reg("iff2")]),
 ]
-
 
 def find_regs_for_version(ver):
     for vers,regs in version_reg_tables:
@@ -68,9 +81,10 @@ class Log:
         if ver==1:
             self.base_index=0
             self._vlists_data=data[1:]
-        elif ver==2:
+        elif ver>=2:
             self.base_index=struct.unpack("<I",data[1:5])[0]
             self._vlists_data=data[5:]
+        else: raise ZException("unsupported version: %d"%ver)
 
         if len(self._vlists_data)%len(self.regs)!=0: raise ZException("bad size")
 
@@ -116,7 +130,7 @@ def get_vlist_str(vlist,log):
     d=dict(zip([x.name for x in log.regs],vlist))
     d["fstr"]=get_flags_str(d["f"])
     
-    return "AF=%(a)02X%(f)02X [%(fstr)s] BC=%(b)02X%(c)02X DE=%(d)02X%(e)02X HL=%(h)02X%(l)02X IX=%(ixh)02X%(ixl)02X IY=%(iyh)02X%(iyl)02X PC=%(pch)02X%(pcl)02X SP=%(sph)02X%(spl)02X (AF'=%(a')02X%(f')02X BC'=%(b')02X%(c')02X DE'=%(d')02X%(e')02X HL'=%(h')02X%(l')02X)"%d
+    return "AF=%(a)02X%(f)02X [%(fstr)s] BC=%(b)02X%(c)02X DE=%(d)02X%(e)02X HL=%(h)02X%(l)02X IX=%(ixh)02X%(ixl)02X IY=%(iyh)02X%(iyl)02X PC=%(pch)02X%(pcl)02X SP=%(sph)02X%(spl)02X (AF'=%(a')02X%(f')02X BC'=%(b')02X%(c')02X DE'=%(d')02X%(e')02X HL'=%(h')02X%(l')02X) I=%(i)02X IFF1=%(iff1)d IFF2=%(iff2)d"%d
     
 ##########################################################################
 ##########################################################################

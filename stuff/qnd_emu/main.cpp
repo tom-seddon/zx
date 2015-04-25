@@ -23,9 +23,10 @@ struct LogEntry
     uint8_t f,a,c,b,e,d,l,h;
     uint8_t f2,a2,c2,b2,e2,d2,l2,h2;
     uint8_t ixl,ixh,iyl,iyh,spl,sph,pcl,pch;
-};
+    uint8_t i,iff1,iff2;
+} __attribute__((packed));
 
-static_assert(sizeof(LogEntry)==24,"");
+static_assert(sizeof(LogEntry)==27,"");
 
 static FILE *g_log_file;
 static std::vector<LogEntry> g_log_entries;
@@ -163,6 +164,9 @@ static void LogZ80State(const Z80 *z)
     save->sph=z->SP.B.h;
     save->pcl=z->PC.B.l;
     save->pch=z->PC.B.h;
+    save->i=z->I;
+    save->iff1=!!(z->IFF&IFF_1);
+    save->iff2=!!(z->IFF&IFF_2);
 }
 
 static void FlushLog()
@@ -356,11 +360,18 @@ int main(int argc,char *argv[])
 					       SDL_TEXTUREACCESS_STREAMING,
 					       256,192);
 
-    //g_log_file=fopen("z80_log.dat","wb");
+    g_log_file=fopen("z80_log.dat","wb");
     atexit(&CloseLogFile);
 
     if(g_log_file)
-	fputc(1,g_log_file);	// version
+    {z
+	// Log file version.
+	fputc(3,g_log_file);
+
+	// Index for first instruction.
+	for(int i=0;i<4;++i)
+	    fputc(0,g_log_file);
+    }
     
     Z80 z80_state;
     memset(&z80_state,0,sizeof z80_state);
@@ -373,15 +384,25 @@ int main(int argc,char *argv[])
 
     uint64_t ticks_per_frame=SDL_GetPerformanceFrequency()/50;
     uint64_t ticks_per_ms=SDL_GetPerformanceFrequency()/1000;
+
+    int num_cycles_left=0;
     
     while(HandleSDLEvents())
     {
 	uint64_t next_vsync=SDL_GetPerformanceCounter()+ticks_per_frame;
-	
-	for(int i=0;i<10000;++i)
-	    ExecZ80(&z80_state,1);
 
-	IntZ80(&z80_state,255);
+	int line=0;
+	while(line<625)
+	{
+	    num_cycles_left=ExecZ80(&z80_state,num_cycles_left+112);
+	    if(num_cycles_left<=0)
+	    {
+		++line;
+
+		if(line==256*2)
+		    IntZ80(&z80_state,255);
+	    }
+	}
 
 	RedrawScreen(back_buffer);
 
