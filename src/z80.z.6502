@@ -81,7 +81,7 @@ ENDIF
 .zread__ptr skip 2
 
 ; The opcode that caused the emulator to barf.
-.zbad__opcode skip 1
+.zbad_opcode skip 1
 
 ; 1 temporary value for use by the current op routine.
 .zop__tmp skip 1

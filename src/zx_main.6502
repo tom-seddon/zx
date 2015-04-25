@@ -1,6 +1,7 @@
 cpu 1
 
 include "shared.k.6502"
+include "zxirq.k.6502"
 include "z80.k.6502"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -341,7 +342,221 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+.finish
+{
+jsr zxirq_uninstall
+jsr save_swram			; save memory dump
+lda #0:tay:jsr osfind		; close all files
+lda #15:ldx #0:jsr osbyte	; flush all buffers
+ldx #<basic:ldy #>basic:jmp oscli
+
+.basic:equs "BASIC",13
+}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 .start
+jsr init_stuff
+
+.run_loop
+lda zaborted:bne finish
+jsr zrun
+jmp (zrun_result_table,X)
+
+.zrun_result_table
+equw next_scanline		; ZRUN_RESULT_CYCLES_DONE
+equw bad_opcode			; ZRUN_RESULT_BAD_OPCODE
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; .zrun_test_loop
+
+; IF STOP_AT_Z80_PC
+; ; Final PC value reached?
+; {
+; lda zrpcl:cmp #<Z80_STOP_PC:bne cont
+; lda zrpch:cmp #>Z80_STOP_PC:bne cont
+; jsr printfstr:equs 13,13,"Final PC reached",13,255
+; jmp finish
+; .cont
+; }
+; ENDIF
+
+; IF LOG_Z80_STATE
+; jsr update_log
+; ENDIF
+
+; jsr zrun
+
+
+
+; cmp #0:bne check_for_quit:jsr next_scanline
+
+; ; Check for abort or quit key. Go back to BASIC if so.
+; .check_for_quit
+; lda zaborted:bne finish
+; lda zxirq_quit_requested:bne finish
+
+; jmp zrun_test_loop
+; ;lda #'C':jsr save_swram
+
+; .start_log
+; {
+
+; rts
+; }
+
+; IF LOG_Z80_STATE
+; .update_log
+; {
+; bit zlog:bmi write_to_log
+
+; ; Check for log start. Reached the LOG FROM INSTRUCTION value?
+; lda insctr+3:cmp #(LOG_FROM_INSTRUCTION>>24)AND255:bcc inc_insctr
+; lda insctr+2:cmp #(LOG_FROM_INSTRUCTION>>16)AND255:bcc inc_insctr
+; lda insctr+1:cmp #(LOG_FROM_INSTRUCTION>>8)AND255:bcc inc_insctr
+; lda insctr+0:cmp #(LOG_FROM_INSTRUCTION>>0)AND255:bcc inc_insctr
+
+; jsr start_log
+
+; .write_to_log
+; ; lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
+; ; jsr osnewl
+; ; lda log_state_gbpb_block+10:jsr printhex:lda log_state_gbpb_block+9:jsr printhex
+; ; jsr osnewl
+
+; jsr zpack_flags
+
+; jsr write_state
+
+; ; Print a message every 64K of log data output.
+; lda log_state_gbpb_block+11:.checkb2:cmp #0:beq done
+; sta checkb2+1
+; jsr printstr:equs "Wrote: ",255:
+; FOR i,3,0,-1:lda log_state_gbpb_block+9+i:jsr printhex:NEXT
+; jsr osnewl
+; .done
+
+; ; Check whether a key was pressed. (AUG p151)
+; lda #$80:ldx #$ff:jsr osbyte:cpx #1:lda #0:rol a:sta zaborted
+
+; .inc_insctr
+; ; Increment instruction counter.
+; {
+; inc insctr+0:bne inc_done
+; inc insctr+1:bne inc_done
+; inc insctr+2:bne inc_done
+; inc insctr+3
+; .inc_done
+; }
+
+; rts
+
+; .write_state
+; {
+; FOR i,0,3:STZ log_state_gbpb_block+1+i:NEXT
+; lda #zstate_end-zstate_begin:sta log_state_gbpb_block+5+0
+; FOR i,1,3:STZ log_state_gbpb_block+5+i:NEXT
+
+; lda #2				; put bytes at PTR#
+; ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
+; jsr osgbpb:bcs bad_gbpb
+
+; rts
+; }
+
+; .start_log
+; {
+; ; LOG_FROM_INSTRUCTION was reached. Start the log.
+; lda #$80:sta zlog
+
+; ; Write the starting instruction number.
+; ldx #0:ldy ta_z80_log_file:.bput_insctr_loop:lda insctr,X:jsr osbput:inx:cpx #4:bne bput_insctr_loop
+
+; ; Print a message
+; jsr printstr:equs 13,10,"Starting log.",13,10,255
+; rts
+; }
+
+; }
+; ENDIF
+
+; .bad_gbpb:brk:equs 255,"Log write fail",255
+
+; IF LOG_Z80_STATE
+; .log_state_gbpb_block
+; equb 0				; file handle
+; equd zstate_begin		; start of data to transfer
+; equd zstate_end-zstate_begin	; number of bytes to transfer
+; equd 0				; pointer to use
+; ENDIF
+; }
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
+; .screen
+; sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
+; lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
+; .reloada:lda #FIX_xx:.j
+; ; bit FIX_xxxx
+; jsr FIX_xxxx
+; ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
+; .reloady:ldy j+2
+; .not_screen
+; .done
+; IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
+
+.next_scanline
+{
+; T-state counter has wrapped - so it's time for another half scanline.
+;
+; There are 112 cycles per scanline. No instruction will cause this to
+; wrap, so only one half scanline need be drawn.
+
+; Adjust T-state counter.
+clc:adc #112:sta ztstates
+
+; Page in shadow RAM.
+lda #ACCCON_PAGE_IN_SHADOW:sta acccon
+
+FOR i,0,7:lda zxirq_keys_up+i:sta $5800+39*8+i:NEXT
+
+; Page in appropriate ROM bank.
+lda #5:sta romsel
+
+; Pick up address of next scanline routine, and jump to it.
+lda zscanlineptr+1:pha
+lda zscanlineptr+0:pha
+
+rts
+}
+
+.scanline_done
+{
+; Pick up address of next scanline routine, and store it off for next
+; time.
+pla:sta zscanlineptr+0
+pla:sta zscanlineptr+1
+
+; Page out shadow RAM.
+lda #ACCCON_PAGE_OUT_SHADOW:sta acccon
+
+jmp run_loop
+}
+
+IF P%>&3000:error "code overlaps shadow RAM":ENDIF
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.init_stuff
 {
 jsr zxirq_install
 
@@ -391,216 +606,41 @@ lda #112:sta ztstates
 lda #<(first_scanline-1):sta zscanlineptr+0
 lda #>(first_scanline-1):sta zscanlineptr+1
 
-
-.zrun_test_loop
-
-; jsr osnewl:lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch
-; ldx zrpcl:ldy zrpch:jsr zread:jsr printhex
-; jsr osrdch
-
-; {inc insctr+0:bne nc:inc insctr+1:bne nc:inc insctr+2:bne nc:inc insctr+3:.nc}
-
-
-; IF LIMIT_Z80_INSTRS
-; ; Bump instruction counter and check for limit reached.
-; {
-; FOR i,0,3:inc insctr+i:bne nc:NEXT
-; .nc
-
-; FOR i,3,0,-1
-; lda insctr+i:cmp #(MAX_Z80_INSTRS>>(i*8))AND255:bcc cont
-; NEXT
-; jsr printfstr:equs 13,13,"Instruction count reached",13,255
-; jmp finish
-; .cont
-; }
-; ENDIF
-
-IF STOP_AT_Z80_PC
-; Final PC value reached?
-{
-lda zrpcl:cmp #<Z80_STOP_PC:bne cont
-lda zrpch:cmp #>Z80_STOP_PC:bne cont
-jsr printfstr:equs 13,13,"Final PC reached",13,255
-jmp finish
-.cont
-}
-ENDIF
-
-IF LOG_Z80_STATE
-jsr update_log
-ENDIF
-
-jsr zrun
-
-cmp #0:bne check_for_quit:jsr next_scanline
-
-; Check for abort or quit key. Go back to BASIC if so.
-.check_for_quit
-lda zaborted:bne finish
-lda zxirq_quit_requested:bne finish
-
-jmp zrun_test_loop
-;lda #'C':jsr save_swram
-
-.finish
-jsr zxirq_uninstall
-jsr save_swram			; save memory dump
-lda #0:tay:jsr osfind		; close all files
-lda #15:ldx #0:jsr osbyte	; flush all buffers
-ldx #<basic:ldy #>basic:jmp oscli
-
-.start_log
-{
-
 rts
 }
 
-IF LOG_Z80_STATE
-.update_log
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.bad_opcode
 {
-bit zlog:bmi write_to_log
-
-; Check for log start. Reached the LOG FROM INSTRUCTION value?
-lda insctr+3:cmp #(LOG_FROM_INSTRUCTION>>24)AND255:bcc inc_insctr
-lda insctr+2:cmp #(LOG_FROM_INSTRUCTION>>16)AND255:bcc inc_insctr
-lda insctr+1:cmp #(LOG_FROM_INSTRUCTION>>8)AND255:bcc inc_insctr
-lda insctr+0:cmp #(LOG_FROM_INSTRUCTION>>0)AND255:bcc inc_insctr
-
-jsr start_log
-
-.write_to_log
-; lda zrpch:jsr printhex:lda zrpcl:jsr printhex:lda #' ':jsr oswrch:jsr oswrch
-; jsr osnewl
-; lda log_state_gbpb_block+10:jsr printhex:lda log_state_gbpb_block+9:jsr printhex
-; jsr osnewl
-
 jsr zpack_flags
 
-jsr write_state
+jsr printstr:equs 22,128,255
 
-; Print a message every 64K of log data output.
-lda log_state_gbpb_block+11:.checkb2:cmp #0:beq done
-sta checkb2+1
-jsr printstr:equs "Wrote: ",255:
-FOR i,3,0,-1:lda log_state_gbpb_block+9+i:jsr printhex:NEXT
-jsr osnewl
-.done
+jsr printfstr
+equb "Invalid opcode: ",1,zbad_opcode,13
+equb "AF =",2,zra,zrf," BC =",2,zrb,zrc," DE =",2,zrd,zre," HL =",2,zrh,zrl,"  IX=",2,zrixh,zrixl,"  PC=",2,zrpch,zrpcl,"  I=",1,zri,13
+equb "AF'=",2,zra2,zrf2," BC'=",2,zrb2,zrc2," DE'=",2,zrd2,zre2," HL'=",2,zrh2,zrl2,"  IY=",2,zriyh,zriyl,"  SP=",2,zrsph,zrspl,"  R=",1,zrr,13
+equb 255
 
-; Check whether a key was pressed. (AUG p151)
-lda #$80:ldx #$ff:jsr osbyte:cpx #1:lda #0:rol a:sta zaborted
+jsr printstrnl:equs "PC:",255:ldx zrpcl:ldy zrpch:lda #3:jsr dumpregion
+jsr printstrnl:equs "Stack:",255:ldx zrspl:ldy zrsph:lda #3:jsr dumpregion
+jsr printstrnl:equs "BC:",255:ldx zrc:ldy zrb:lda #2:jsr dumpregion
+jsr printstrnl:equs "DE:",255:ldx zre:ldy zrd:lda #2:jsr dumpregion
+jsr printstrnl:equs "HL:",255:ldx zrl:ldy zrh:lda #2:jsr dumpregion
+jsr printstrnl:equs "6502 zero page:",255:ldx #0:ldy #0:lda #3:jsr dump6502
 
-.inc_insctr
-; Increment instruction counter.
-{
-inc insctr+0:bne inc_done
-inc insctr+1:bne inc_done
-inc insctr+2:bne inc_done
-inc insctr+3
-.inc_done
+jmp finish
+
+.dumpregion
+pha
+sec
+txa:sbc #1:and #(255<<dump_width_log2) AND 255:tax
+tya:sbc #0:tay
+pla
+jmp dumpz80
 }
-
-rts
-
-.write_state
-{
-FOR i,0,3:STZ log_state_gbpb_block+1+i:NEXT
-lda #zstate_end-zstate_begin:sta log_state_gbpb_block+5+0
-FOR i,1,3:STZ log_state_gbpb_block+5+i:NEXT
-
-lda #2				; put bytes at PTR#
-ldx #<log_state_gbpb_block:ldy #>log_state_gbpb_block
-jsr osgbpb:bcs bad_gbpb
-
-rts
-}
-
-.start_log
-{
-; LOG_FROM_INSTRUCTION was reached. Start the log.
-lda #$80:sta zlog
-
-; Write the starting instruction number.
-ldx #0:ldy ta_z80_log_file:.bput_insctr_loop:lda insctr,X:jsr osbput:inx:cpx #4:bne bput_insctr_loop
-
-; Print a message
-jsr printstr:equs 13,10,"Starting log.",13,10,255
-rts
-}
-
-}
-ENDIF
-
-.bad_gbpb:brk:equs 255,"Log write fail",255
-
-.basic:equs "BASIC",13
-
-IF LOG_Z80_STATE
-.log_state_gbpb_block
-equb 0				; file handle
-equd zstate_begin		; start of data to transfer
-equd zstate_end-zstate_begin	; number of bytes to transfer
-equd 0				; pointer to use
-ENDIF
-}
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-; cpy #$40:bcc not_screen:cpy #$58:bcs not_screen
-; .screen
-; sta reloada+1:sty j+2:txa:and #%11100000:sta j+1
-; lda #ACCCON_PAGE_IN_SHADOW:sta $fe34
-; .reloada:lda #FIX_xx:.j
-; ; bit FIX_xxxx
-; jsr FIX_xxxx
-; ldy #ACCCON_PAGE_OUT_SHADOW:sty $fe34
-; .reloady:ldy j+2
-; .not_screen
-; .done
-; IF P%>&3000:ERROR "write routine overlaps shadow RAM":ENDIF
-
-.next_scanline
-{
-; T-state counter has wrapped - so it's time for another half scanline.
-;
-; There are 112 cycles per scanline. No instruction will cause this to
-; wrap, so only one half scanline need be drawn.
-
-; Adjust T-state counter.
-clc:adc #112:sta ztstates
-
-; Page in shadow RAM.
-lda #ACCCON_PAGE_IN_SHADOW:sta acccon
-
-FOR i,0,7:lda zxirq_keys_up+i:sta $5800+39*8+i:NEXT
-
-; Page in appropriate ROM bank.
-lda #5:sta romsel
-
-; Pick up address of next scanline routine, and jump to it.
-lda zscanlineptr+1:pha
-lda zscanlineptr+0:pha
-rts
-}
-
-.scanline_done
-{
-; Pick up address of next scanline routine, and store it off for next
-; time.
-pla:sta zscanlineptr+0
-pla:sta zscanlineptr+1
-
-; Page out shadow RAM.
-lda #ACCCON_PAGE_OUT_SHADOW:sta acccon
-
-rts
-}
-
-IF P%>&3000:error "code overlaps shadow RAM":ENDIF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1,6 +1,16 @@
 cpu 1
 
 include "shared.k.6502"
+include "zxirq.k.6502"
+include "z80.k.6502"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+org $00
+guard $80
+
+include "z80.z.6502"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -12,12 +22,10 @@ org zxirq_base
 .irq_install:jmp install
 .irq_uninstall: jmp uninstall
 .spectrum_keys_up:FOR i,0,7:equb 255:NEXT
-.quit_requested:skip 1
 
 IF irq_install!=zxirq_install:ERROR "irq_install is in the wrong place":ENDIF
 IF irq_uninstall!=zxirq_uninstall:ERROR "irq_uninstall is in the wrong place":ENDIF
 IF spectrum_keys_up!=zxirq_keys_up:ERROR "keys up table is in the wrong place":ENDIF
-IF quit_requested!=zxirq_quit_requested:ERROR "quit request flag is in the wrong place":ENDIF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -154,7 +162,7 @@ lda spectrum_keys_up,X:and #%00011111:eor #$ff:sta spectrum_keys_up,X
 dex:bpl loop
 
 ; Poll f9 - quit key.
-{lda #$77:sta $fe4f:lda $fe4f:bpl no_quit:lda #$ff:sta quit_requested:.no_quit}
+{lda #$77:sta $fe4f:lda $fe4f:bpl no_quit:lda zaborted:ora #$40:sta zaborted:.no_quit}
 
 stz keys_need_polling
 

@@ -1368,36 +1368,9 @@ rts
 
 .zbad
 {
-ror a:sta zbad__opcode
-jsr zpack_flags
-
-jsr printstr:equs 22,128,255
-
-jsr printfstr
-equb "Invalid opcode: ",1,zbad__opcode,13
-equb "AF =",2,zra,zrf," BC =",2,zrb,zrc," DE =",2,zrd,zre," HL =",2,zrh,zrl,"  IX=",2,zrixh,zrixl,"  PC=",2,zrpch,zrpcl,"  I=",1,zri,13
-equb "AF'=",2,zra2,zrf2," BC'=",2,zrb2,zrc2," DE'=",2,zrd2,zre2," HL'=",2,zrh2,zrl2,"  IY=",2,zriyh,zriyl,"  SP=",2,zrsph,zrspl,"  R=",1,zrr,13
-equb 255
-
-jsr printstrnl:equs "PC:",255:ldx zrpcl:ldy zrpch:lda #3:jsr dumpregion
-jsr printstrnl:equs "Stack:",255:ldx zrspl:ldy zrsph:lda #3:jsr dumpregion
-jsr printstrnl:equs "BC:",255:ldx zrc:ldy zrb:lda #2:jsr dumpregion
-jsr printstrnl:equs "DE:",255:ldx zre:ldy zrd:lda #2:jsr dumpregion
-jsr printstrnl:equs "HL:",255:ldx zrl:ldy zrh:lda #2:jsr dumpregion
-jsr printstrnl:equs "6502 zero page:",255:ldx #0:ldy #0:lda #3:jsr dump6502
-
-lda #$80:sta zaborted
-
+ror a:sta zbad_opcode
+ldx #ZRUN_RESULT_BAD_OPCODE
 rts
-
-.dumpregion
-pha
-sec
-txa:sbc #1:and #(255<<dump_width_log2) AND 255:tax
-tya:sbc #0:tay
-pla
-jmp dumpz80
-
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1474,9 +1447,8 @@ bcs set
 }
 
 .zrun_cycles_done
-lda #$00
+ldx #ZRUN_RESULT_CYCLES_DONE
 rts
-
 }
 
 
