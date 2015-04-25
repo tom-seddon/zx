@@ -21,17 +21,18 @@
 .zrspl skip 1:.zrsph skip 1
 .zrpcl skip 1
 .zrpch skip 1
-.zstate_end
 
-.zri skip 1
 .zrr skip 1
 
-.ziff1 skip 1
-.ziff2 skip 1
+.ziff skip 1
 
 .zrend
 
-IF zstate_end-zstate_begin!=24:ERROR "state is wrong size":ENDIF
+.zstate_end
+
+.zri skip 1
+
+IF zstate_end-zstate_begin!=26:ERROR "state is wrong size":ENDIF
 
 ; The 16-bit registers must be placed together, low byte first.
 IF zrb!=zrc+1:ERROR "BC not together":ENDIF

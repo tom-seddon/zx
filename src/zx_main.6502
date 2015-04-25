@@ -348,7 +348,9 @@ IF LOG_Z80_STATE
 jsr flush_log
 ENDIF
 jsr zxirq_uninstall
+jsr osnewl:jsr printstr:equs "Saving Z80 memory: ",255
 jsr save_swram			; save memory dump
+jsr osnewl
 lda #0:tay:jsr osfind		; close all files
 lda #15:ldx #0:jsr osbyte	; flush all buffers
 ldx #<basic:ldy #>basic:jmp oscli
@@ -511,7 +513,7 @@ IF LOG_Z80_STATE
 lda ta_z80_log_file:sta log_state_gbpb_block+0
 
 ; Write log version
-ldy ta_z80_log_file:lda #2:jsr osbput
+ldy ta_z80_log_file:lda #3:jsr osbput
 
 ; Write initial instruction
 ldy ta_z80_log_file:lda #0:jsr osbput
@@ -572,6 +574,13 @@ brk:equs 255,"Log write fail",255
 
 .gbpb_done
 jsr reset_log
+
+; Print a message every 64K of log data output.
+lda log_state_gbpb_block+11:.checkb2:cmp #0:beq done
+sta checkb2+1
+jsr osnewl
+jsr printstr:equs "Wrote: ",255:
+FOR i,3,0,-1:lda log_state_gbpb_block+9+i:jsr printhex:NEXT
 
 .done
 rts
@@ -846,8 +855,8 @@ ELSE
 
 IF half_scanline_idx==256*2
 ; Vsync interrupt.
-; lda #$ff			; Suggestions welcome...
-; jsr zirq
+lda #$ff			; Suggestions welcome...
+jsr zirq
 ENDIF
 
 ENDIF

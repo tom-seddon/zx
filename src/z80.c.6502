@@ -901,7 +901,9 @@ bmi reseth
 
 .zop_di
 {
-stz ziff1:stz ziff2
+lda ziff
+and #NOT(ZIFF_1 OR ZIFF_2)AND255
+sta ziff
 
 ZNEXT 4
 }
@@ -911,9 +913,17 @@ ZNEXT 4
 
 .zop_ei
 {
-lda #1:sta ziff1:sta ziff2
+lda ziff
 
-ZNEXT 4
+IF SINGLE_STEP_Z80
+ora #ZIFF_1 OR ZIFF_2 OR ZIFF_EI
+ELSE
+ora #ZIFF_1 OR ZIFF_2
+ENDIF
+
+sta ziff
+
+lda #4:jmp zrun_next_after_ei
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -965,8 +975,10 @@ cpx #$80:beq setv		; P from result
 .zop_retn
 {
 jsr zpop_pc
-lda ziff2:sta ziff1
-ZNEXT 14
+
+lda ziff:and #ZIFF_2:beq reset_iff_1
+.set_iff_1:lda ziff:ora #ZIFF_1:sta ziff:ZNEXT 14
+.reset_iff_1:lda ziff:and #NOT(ZIFF_1)AND255:sta ziff:ZNEXT 14
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1091,7 +1103,7 @@ sta zf53val			; 5/3 from result
 stz zfhval			; H=0
 stz zfnval			; N=0
 ; C unchanged
-lda ziff2:bne setp
+lda ziff:and #ZIFF_2:bne setp
 .resetp:lda #ZP0_VALUE:sta zfpval:ZNEXT 9
 .setp:lda #ZP1_VALUE:sta zfpval:ZNEXT 9
 }
@@ -1376,30 +1388,38 @@ rts
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Supply byte in X.
+; 
 ; M0 assumes supplied byte is FFh - RST $38
 ;
 ; M1 ignores supplied byte.
 ;
-; M2 uses A value to form address.
+; M2 uses supplied byte to form address.
 
 .zirq
 {
 ; Ignore if IRQs are disabled.
-ldx ziff1:beq done
+lda ziff
+IF SINGLE_STEP_Z80
+and #ZIFF_1 OR ZIFF_EI
+ELSE
+and #ZIFF_1
+ENDIF
+beq done
 
 ; IRQ will be accepted, so stack PC and reset IFF1 and IFF2.
-pha
+phx
 jsr zpush_pc
-stz ziff1:stz ziff2
-pla
+lda ziff:and #NOT(ZIFF_1 OR ZIFF_2)AND255:sta ziff
+plx
 
 ; Check interrupt mode.
-ldx zinterrupt_mode
-cpx #2:bcc m1			; M0/M1 are treated the same.
+lda zinterrupt_mode
+cmp #2:bcc m1			; M0/M1 are treated the same.
 
 .m2
 ; Form table address.
-tax:ldy zri
+ldy zri
 
 ; Load new PC.
 jsr load_xy_postinc:sta zrpcl
@@ -1426,12 +1446,16 @@ IF P%>&3000:ERROR "zirq overlaps shadow RAM":ENDIF
 ; Exit: A indicates finish reason: 0 = cycle count reached, 1 = bad
 ; instruction
 .zrun
-lda #0
+IF SINGLE_STEP_Z80
+lda #ZIFF_EI:trb ziff
+ENDIF
 
 IF SINGLE_STEP_Z80
 lda ztstates:bmi zrun_cycles_done
 jmp zrun_do_opcode
 ENDIF
+
+lda #0
 
 .zrun_next
 
@@ -1459,6 +1483,35 @@ bcs zrun_bit7_set
 ldx #ZRUN_RESULT_CYCLES_DONE
 rts
 
+; This version of zrun is called after EI was executed.
+;
+; When not in single step form: it avoids dropping out due to the
+; cycle count, resets the EI flag in the IFF register, and then
+; executes as normal. The main loop is then never given a chance to
+; cause an IRQ during the instruction after the EI.
+;
+; When in single step form: it drops out, leaving the EI flag set.
+; Then some extra code at the top of `zrun' resets the EI flag. `zirq'
+; checks the EI flag, and ignores the interrupt if it's set.
+.zrun_next_after_ei
+
+; Don't bail out here...
+clc:adc ztstates:sta ztstates
+
+; If leaving here, ZIFF_EI will still be set - no problem, because
+; `zrun' will sort it out.
+IF SINGLE_STEP_Z80
+ldx #ZRUN_RESULT_STEPPED
+rts
+ENDIF
+
+IF SINGLE_STEP_Z80
+; Reset ZIFF_EI.
+lda ziff:and #NOT(ZIFF_EI)AND255:sta ziff
+ENDIF
+
+; Back to the normal run of things.
+jmp zrun_do_opcode
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
