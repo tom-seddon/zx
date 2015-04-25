@@ -633,16 +633,22 @@ ELSE
 ; skip this one.
 ; draw data.
 y=half_scanline_idx/2		; scanline on screen
-spectrum_address=$8000+((y AND 7)<<8)+(((y>>3) AND 7)<<5)+((y>>6)<<11)
+spectrum_offset=((y AND 7)<<8)+(((y>>3) AND 7)<<5)+((y>>6)<<11) ; offset
+								; from
+								; display
+								; RAM
+								; base
 bbc_address=&5800+(y>>3)*320+(y AND 7)
 lda bbc_address:eor #$ff:sta bbc_address
 ldx #31
 .loop
-lda spectrum_address,X
+lda $8000+spectrum_offset,X
 ldy x8,X
 sta bbc_address+32,Y
 dex
 bpl loop
+.done
+
 
 ENDIF
 
