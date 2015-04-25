@@ -93,3 +93,7 @@ ENDIF
 .zindex__tmp skip 2
 
 .zdisplacement skip 1
+
+IF LOG_Z80_STATE
+zlog_dest skip 2
+ENDIF

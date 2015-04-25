@@ -34,9 +34,11 @@ LOG_FROM_INSTRUCTION=648000
 STOP_AT_Z80_PC=FALSE
 Z80_STOP_PC=$120a
 
+SINGLE_STEP_Z80=LOG_Z80_STATE OR STOP_AT_Z80_PC
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ZRUN_RESULT_CYCLES_DONE=0
 ZRUN_RESULT_BAD_OPCODE=2
-
+ZRUN_RESULT_STEPPED=4

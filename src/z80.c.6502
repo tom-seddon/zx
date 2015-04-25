@@ -239,7 +239,7 @@ ENDMACRO
 MACRO ZNEXT cycles
 IF cycles==0:ERROR "cycles must be greater than 0":ENDIF
 lda #(-cycles)AND255
-jmp znext
+jmp zrun_next
 ENDMACRO
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1428,28 +1428,36 @@ IF P%>&3000:ERROR "zirq overlaps shadow RAM":ENDIF
 .zrun
 lda #0
 
-.znext
-{
+IF SINGLE_STEP_Z80
+lda ztstates:bmi zrun_cycles_done
+jmp zrun_do_opcode
+ENDIF
+
+.zrun_next
+
 clc:adc ztstates:sta ztstates:bmi zrun_cycles_done
 
+IF SINGLE_STEP_Z80
+ldx #ZRUN_RESULT_STEPPED
+rts
+ENDIF
+
+.zrun_do_opcode
 jsr zfetch
 inc zrr
 
 ; Call instruction routine.
 ;
 ; NOTE: ZBAD relies on ROR A restoring the opcode!
-{
 asl a:tax
 
-bcs set
-.reset:jmp (zop_table_0xxxxxxx,X)
-.set:jmp (zop_table_1xxxxxxx,X)
-}
+bcs zrun_bit7_set
+.zrun_bit7_reset:jmp (zop_table_0xxxxxxx,X)
+.zrun_bit7_set:jmp (zop_table_1xxxxxxx,X)
 
 .zrun_cycles_done
 ldx #ZRUN_RESULT_CYCLES_DONE
 rts
-}
 
 
 
