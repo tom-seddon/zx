@@ -11,18 +11,18 @@ me.
 
 * FAQ
 
-1. Why?
+** Why?
 
 I don't even remember. But why not?
 
-2. What is the performance like?
+** What is the performance like?
 
-Terrible. So terrible, I haven't even bothered putting in any kind of
-performance counters. Going by eye, it's about 3% real speed.
+Terrible. So terrible, I haven't even bothered putting in any kind
+of performance counters. Going by eye, it's about 3% real speed.
 
 This is actually worse than it sounds. 
 
-3. Can I play games with it?
+** Can I play games with it?
 
 Currently? No. There are too many emulation bugs (it doesn't even boot
 the standard ROM 100% properly...), there's no tape loading support,
@@ -30,7 +30,7 @@ and I haven't implemented save state loading yet.
 
 Eventually? No. It will be way too slow.
 
-4. What about B/B+/B+128 support?
+** What about B/B+/B+128 support?
 
 Not without a lot of work. The current code uses 4 banks of sideways
 RAM (for the Z80 memory), all of main RAM, all of shadow RAM, and
@@ -39,7 +39,7 @@ might also have used some of the Master 128 instructions...
 
 With enough (112K?) sideways RAM it could be feasible, with work.
 
-5. What about second processor support?
+** What about second processor support?
 
 I have a crazy plan! But the ordinary version doesn't even work
 properly, so... not yet.
