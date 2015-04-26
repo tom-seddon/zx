@@ -9,6 +9,17 @@ Spectrum's hardware.
 *This is not a joke!* But if you ran it, you probably wouldn't believe
 me.
 
+* Licence
+
+=stuff/qnd_emu= - Z80 emulator parts by Marat Fayzullin (consult [[http://fms.komkon.org/EMUL8/][Marat
+Fayzullin's emulator page]] for licence details). main.cpp code by me
+(MIT licence).
+
+Rest of =stuff= folder: consult each folder in turn to discover
+licence terms.
+
+Remainder: GPL v2.
+
 * Building
 
 Watch this space.
