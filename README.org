@@ -2,12 +2,40 @@
 
 A ZX Spectrum emulator for your BBC Master 128.
 
-*This is not a joke*! This will genuinely execute ZX Spectrum programs
+*This is not a joke!* This will genuinely execute ZX Spectrum programs
 on your BBC Master 128, by executing the Z80 code and emulating the
 Spectrum's hardware.
 
-*This is not a joke*! But if you run it, you probably won't believe
+*This is not a joke!* But if you ran it, you probably wouldn't believe
 me.
+
+* Building
+
+Watch this space.
+
+This repo exists so I can share code conveniently between OS X and
+Windows, and I'm too cheap for a proper GitHub subscription. So it's
+not really set up for other people to build with just yet.
+
+But, if you have python 2.7, BeebAsm, and you use [[http://web.inter.nl.net/users/J.Kortink/home/software/65link/][65Link]] with your
+Master, you might be able to tweak a few paths and have it work.
+
+* Status
+
+Pre-pre-alpha WIP prototype.
+
+With no emulated interrupts occurring, it boots the 48K ZX Spectrum
+ROM to the "(C) 1982 Sinclair Research Ltd" message. The register log
+matches a quick'n'dirty PC-based Spectrum emulator I cobbled together
+(see the stuff/qnd_emu folder) using Marat Fayzullin's Z80 code, which
+I assume is at least roughly correct. So it looks like things roughly
+work, sort of.
+
+With vblank interrupts occurring - essential to get the keyboard
+working - the emulated system gets stuck somewhere between the memory
+test and the message. Clearly some bugs remain...
+
+Watch this space.
 
 * FAQ
 
@@ -15,12 +43,19 @@ me.
 
 I don't even remember. But why not?
 
+** Can I see it running?
+
+If you build it yourself, sure!
+
+Otherwise... no. I tried to take a video for YouTube, but it came out
+very poorly.
+
 ** What is the performance like?
 
-Terrible. So terrible, I haven't even bothered putting in any kind
-of performance counters. Going by eye, it's about 3% real speed.
+Terrible. So terrible, I haven't even bothered putting in any kind of
+performance counters. But, going by eye, it looks about 3% real speed.
 
-This is actually worse than it sounds. 
+This is actually even worse than it sounds.
 
 ** Can I play games with it?
 
@@ -35,11 +70,14 @@ Eventually? No. It will be way too slow.
 Not without a lot of work. The current code uses 4 banks of sideways
 RAM (for the Z80 memory), all of main RAM, all of shadow RAM, and
 relies on the Master's fancy shadow RAM banking system. Oh... and I
-might also have used some of the Master 128 instructions...
+might also have used some of the 65C12 instructions...
 
 With enough (112K?) sideways RAM it could be feasible, with work.
 
-** What about second processor support?
+** What about second processor support? Would that help?
 
-I have a crazy plan! But the ordinary version doesn't even work
-properly, so... not yet.
+I have a crazy plan, but I'm not sure it will help that much :(
+
+But so far, even the ordinary version doesn't work properly, so... not
+yet.
+
