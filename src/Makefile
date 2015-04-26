@@ -1,4 +1,4 @@
-BEEBASM:=~/not-my/beebasm/beebasm
+BEEBASM:=../../beebasm/beebasm
 PASMO:=pasmo
 VOL:=~/beeb/beeb-files/stuff/zx/0
 TVOL:=~/beeb/beeb-files/stuff/zx/7
