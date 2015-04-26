@@ -17,8 +17,9 @@ This repo exists so I can share code conveniently between OS X and
 Windows, and I'm too cheap for a proper GitHub subscription. So it's
 not really set up for other people to build with just yet.
 
-But, if you have python 2.7, BeebAsm, and you use [[http://web.inter.nl.net/users/J.Kortink/home/software/65link/][65Link]] with your
-Master, you might be able to tweak a few paths and have it work.
+But, if you have python 2.7, BeebAsm (build [[https://github.com/tom-seddon/beebasm/tree/_tom][the =_tom= branch of my
+BeebAsm repo]]), [[https://github.com/tom-seddon/beeb][my Beeb tools]], and you use [[http://web.inter.nl.net/users/J.Kortink/home/software/65link/][65Link]] with your Master, you
+might be able to tweak a few paths and have it work...
 
 * Status
 
@@ -78,6 +79,6 @@ With enough (112K?) sideways RAM it could be feasible, with work.
 
 I have a crazy plan, but I'm not sure it will help that much :(
 
-But so far, even the ordinary version doesn't work properly, so... not
-yet.
+But so far, even the ordinary version doesn't work properly, so... no
+support yet.
 
