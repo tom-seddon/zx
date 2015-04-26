@@ -855,8 +855,8 @@ ELSE
 
 IF half_scanline_idx==256*2
 ; Vsync interrupt.
-lda #$ff			; Suggestions welcome...
-jsr zirq
+; lda #$ff			; Suggestions welcome...
+; jsr zirq
 ENDIF
 
 ENDIF
