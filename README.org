@@ -30,7 +30,8 @@ not really set up for other people to build with just yet.
 
 But, if you have python 2.7, BeebAsm (build [[https://github.com/tom-seddon/beebasm/tree/_tom][the =_tom= branch of my
 BeebAsm repo]]), [[https://github.com/tom-seddon/beeb][my Beeb tools]], and you use [[http://web.inter.nl.net/users/J.Kortink/home/software/65link/][65Link]] with your Master, you
-might be able to tweak a few paths and have it work...
+might be able to tweak a few paths and have it work. You're on your
+own for now, though!
 
 * Status
 
@@ -47,6 +48,11 @@ With vblank interrupts occurring - essential to get the keyboard
 working - the emulated system gets stuck somewhere between the memory
 test and the message. Clearly some bugs remain...
 
+I've reached the limit of what I feel like debugging on an ordinary
+2MHz system, so next step is to get some Windows/Linux time, running
+B-Em with the speed limiter turned off (and some means of easily
+getting megabytes of log data into a PC file).
+
 Watch this space.
 
 * FAQ
@@ -55,19 +61,23 @@ Watch this space.
 
 I don't even remember. But why not?
 
-** Can I see it running?
-
-If you build it yourself, sure!
-
-Otherwise... no. I tried to take a video for YouTube, but it came out
-very poorly.
-
 ** What is the performance like?
 
 Terrible. So terrible, I haven't even bothered putting in any kind of
 performance counters. But, going by eye, it looks about 3% real speed.
 
 This is actually even worse than it sounds.
+
+** Can I see it running?
+
+[[http://quadruple-a.com/.beeb/VID_20150424_032822201.mp4][Download a video of ZX running]] (~100MBytes).
+
+This shows ZX load, run, and execute enough of the Spectrum to get to
+the initial copyright message.
+
+(The bar on the left hand side of the screen represents the TV
+scan-out process. One frame, the bar is filled with white; the next,
+it is filled with black. Yes - I did say it was slow...)
 
 ** Can I play games with it?
 
