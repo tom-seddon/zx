@@ -72,8 +72,8 @@ This is actually even worse than it sounds.
 
 [[http://quadruple-a.com/.beeb/VID_20150424_032822201.mp4][Download a video of ZX running]] (~100MBytes).
 
-This shows ZX load, run, and execute enough of the Spectrum to get to
-the initial copyright message.
+This shows ZX load, run, and execute enough of the Spectrum ROM to get
+to the initial copyright message.
 
 (The bar on the left hand side of the screen represents the TV
 scan-out process. One frame, the bar is filled with white; the next,
